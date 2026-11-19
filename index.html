@@ -328,8 +328,29 @@ function shuffle(a){a=a.slice();for(var k=a.length-1;k>0;k--){var j=Math.floor(M
 function el(h){var d=document.createElement("div");d.innerHTML=h;return d.firstChild}
 function $(id){return document.getElementById(id)}
 function esc(s){var d=document.createElement("div");d.textContent=s;return d.innerHTML}
-function tabs(on){return '<div class="tabs">'+(on==="home"?'':'<button class="btn sm ghost" id="t-home">← Menu</button>')+'<span class="who">'+esc(ME.prenom+" "+ME.nom)+'</span><button class="btn sm ghost" id="t-out">Déconnexion</button></div>'}
-function bindTabs(){if($("t-home"))$("t-home").onclick=start;$("t-out").onclick=logout}
+function tabs(on){return '<div class="tabs">'+(on==="home"?'':'<button class="btn sm ghost" id="t-home">← Menu</button>')+'<span class="who">'+esc(ME.prenom+" "+ME.nom)+'</span>'+(on==="params"?'':'<button class="btn sm ghost" id="t-set">⚙️ Paramètres</button>')+'<button class="btn sm ghost" id="t-out">Déconnexion</button></div>'}
+function bindTabs(){if($("t-home"))$("t-home").onclick=start;if($("t-set"))$("t-set").onclick=paramsView;$("t-out").onclick=logout}
+/* ---------- Paramètres : résolution du site ---------- */
+var ZOOM=100;
+function applyZoom(z){ZOOM=z;var a=document.getElementById("app");if(a)a.style.zoom=(z/100)}
+try{var z0=parseInt(localStorage.getItem("quiz_zoom"),10);if(z0>=60&&z0<=160)applyZoom(z0)}catch(e){}
+function paramsView(){
+  if(!ME)return authView(""); var back=view; view="params"; var cur=ZOOM;
+  var pre=[["Petite",85],["Normale",100],["Grande",115],["Très grande",130]];
+  app.innerHTML='<div class="card">'+tabs("params")+'<div class="eyebrow">Paramètres</div><h1 class="title">Résolution du site</h1>'+
+   '<p class="lead">Agrandis ou réduis l’affichage pour qu’il s’adapte à ton écran. Le réglage est gardé sur cet appareil.</p>'+
+   '<label>Taille d’affichage : <b id="zv"></b></label><input type="range" id="zr" min="60" max="160" step="5" style="width:100%">'+
+   '<div class="chips" id="zc" style="margin-top:12px">'+pre.map(function(x){return '<button type="button" class="chip" data-z="'+x[1]+'">'+x[0]+' ('+x[1]+' %)</button>'}).join("")+'</div>'+
+   '<div class="note" id="msg"></div><div class="row"><button class="btn" id="zs">Enregistrer</button><button class="btn ghost" id="zd">Revenir à 100 %</button><button class="btn ghost" id="zb">Retour</button></div></div>';
+  bindTabs();
+  function set(z){applyZoom(z);$("zr").value=z;$("zv").textContent=z+" %";Array.prototype.forEach.call(app.querySelectorAll("#zc .chip"),function(b){b.classList.toggle("on",+b.dataset.z===z)})}
+  set(cur);
+  $("zr").oninput=function(){set(parseInt(this.value,10))};
+  Array.prototype.forEach.call(app.querySelectorAll("#zc .chip"),function(b){b.onclick=function(){set(+b.dataset.z)}});
+  $("zd").onclick=function(){set(100)};
+  $("zs").onclick=function(){var ok=true;try{localStorage.setItem("quiz_zoom",String(ZOOM))}catch(e){ok=false}$("msg").textContent=ok?"Résolution enregistrée.":"Résolution appliquée, mais impossible de l’enregistrer sur cet appareil."};
+  $("zb").onclick=function(){try{var z=parseInt(localStorage.getItem("quiz_zoom"),10);applyZoom(z>=60&&z<=160?z:100)}catch(e){}start()};
+}
 function partyLink(p){return ART+"#"+p.id}
 function pts(d){return d.vf?2:Math.max(1,d.c||1)}
 function totalPts(l){return l.reduce(function(t,d){return t+pts(d)},0)}
@@ -724,7 +745,7 @@ function start(){
    '<div class="hero"><div class="hav" id="m-av" title="Mes personnages">'+avatar(actif(),96)+'</div><div><div class="eyebrow" id="m-hi"></div><h1 class="title">Quiz sur la <span class="hl">logistique</span></h1></div></div>'+
    '<p class="lead" id="m-ph"></p>'+
    (isAdmin?'<button class="ob" id="m-new"><span class="ic2">➕</span><span><b>Créer un quiz</b><small>Ajoute tes questions et invite les joueurs</small></span></button>':'')+
-   '<button class="ob" id="m-join"><span class="ic2">👥</span><span><b>Rejoindre une partie</b><small>Avec un lien ou un code</small></span></button>'+
+   '<button class="ob" id="m-join"><span class="ic2">👥</span><span><b>'+(isProf()?"Voir les parties":"Rejoindre une partie")+'</b><small>'+(isProf()?"Suis le classement en direct (les professeurs ne jouent pas)":"Avec un lien ou un code")+'</small></span></button>'+
    '<div class="row" style="margin-top:4px"><button class="btn ghost" style="flex:1;min-width:140px" id="m-pers">Mes personnages</button><button class="btn ghost" style="flex:1;min-width:140px" id="m-rules">Règles du jeu</button>'+(isProf()?'<button class="btn ghost" style="flex:1;min-width:140px" id="m-acc">Comptes créés</button>':'')+'</div>'+yard()+'</div>';
   $("m-ph").textContent=phrase();
   $("m-hi").textContent="Salut "+ME.prenom+" !"+(isProf()?" · Professeur":"");
@@ -734,18 +755,34 @@ function start(){
   if($("m-new"))$("m-new").onclick=function(){creerView("")};
   if($("m-acc"))$("m-acc").onclick=function(){accView("")};
 }
+async function chargerReglages(){
+  try{var sn=await dbRoot.doc("reglages/"+ME.id).get();if(sn.exists)return sn.data()}catch(e){}
+  try{return JSON.parse(localStorage.getItem("quiz_reglages_"+ME.id)||"null")}catch(e){return null}
+}
+async function sauverReglages(r){
+  try{localStorage.setItem("quiz_reglages_"+ME.id,JSON.stringify(r))}catch(e){}
+  if(!dbRoot)throw {message:"base indisponible"};
+  await dbRoot.doc("reglages/"+ME.id).set(r);
+}
 function creerView(msg){
   if(!ME||!isAdmin)return start(); view="creer"; msg=typeof msg==="string"?msg:"";
   app.innerHTML='<div class="card">'+tabs("creer")+'<div class="eyebrow">Nouveau quiz</div><h1 class="title">Créer un quiz</h1>'+
    '<p class="lead">Donne un nom à ton quiz et choisis le nombre de joueurs. Tu ajouteras les questions à l’étape suivante.</p>'+
-   '<label>Nom du quiz</label><input type="text" id="cn"><label>Nombre de joueurs</label><input type="number" id="cm" min="1" max="500" value="10">'+
+   '<label>Nom du quiz</label><input type="text" id="cn"><label>Nombre de joueurs</label><input type="number" id="cm" min="1" max="500" value="10"><label>Temps par question (secondes)</label><input type="number" id="ct" min="5" max="300" value="30">'+
    '<label style="display:flex;align-items:center;gap:8px;font-size:14px;color:var(--ink);margin-top:14px"><input type="checkbox" id="cc" style="width:auto"> Reprendre les questions du quiz principal</label>'+
-   '<div class="note" id="msg"></div><div class="row"><button class="btn" id="cok">Créer et ajouter les questions</button></div></div>';
+   '<div class="note" id="msg"></div><div class="row"><button class="btn" id="cok">Créer et ajouter les questions</button><button class="btn ghost" id="csv">Enregistrer les paramètres</button></div></div>';
   bindTabs(); $("msg").textContent=msg;
+  function lireP(){var mx=parseInt($("cm").value,10),tm=parseInt($("ct").value,10);if(!(mx>=1&&mx<=500)){$("msg").textContent="Entre un nombre de joueurs entre 1 et 500.";return null}if(!(tm>=5&&tm<=300)){$("msg").textContent="Entre un temps par question entre 5 et 300 secondes.";return null}return {max:mx,tm:tm,rep:$("cc").checked?1:0}}
+  function appliqueP(r){if(!r)return;if(r.max>=1&&r.max<=500)$("cm").value=r.max;if(r.tm>=5&&r.tm<=300)$("ct").value=r.tm;$("cc").checked=!!r.rep}
+  chargerReglages().then(function(r){if(view==="creer"&&$("cn")&&!$("cn").value)appliqueP(r)});
+  $("csv").onclick=function(){var r=lireP();if(!r)return;$("csv").disabled=true;$("msg").textContent="Enregistrement…";
+    sauverReglages(r).then(function(){$("msg").textContent="Paramètres enregistrés : ils seront proposés à chaque nouveau quiz.";$("csv").disabled=false},function(e){$("msg").textContent="Échec de l’enregistrement : "+errTxt(e);$("csv").disabled=false})};
   $("cok").onclick=function(){
     var n=$("cn").value.trim(); if(!n)return $("msg").textContent="Donne un nom au quiz.";
     var mx=parseInt($("cm").value,10); if(!(mx>=1&&mx<=500))return $("msg").textContent="Entre un nombre de joueurs entre 1 et 500.";
-    var p={id:"p-"+Math.random().toString(36).slice(2,7),name:n,max:mx,etat:"attente",chef:ME.id,t:Date.now(),items:$("cc").checked?QUESTIONS.map(cp):[]};
+    var tm=parseInt($("ct").value,10); if(!(tm>=5&&tm<=300))return $("msg").textContent="Entre un temps par question entre 5 et 300 secondes.";
+    var its=$("cc").checked?QUESTIONS.map(cp):[]; if(tm!==30)its.forEach(function(x){x.tm=tm});
+    var p={id:"p-"+Math.random().toString(36).slice(2,7),name:n,max:mx,etat:"attente",chef:ME.id,t:Date.now(),items:its};
     $("cok").disabled=true; $("msg").textContent="Création en cours…";
     saveParty(p).then(function(){if(!PARTIES.some(function(x){return x.id===p.id}))PARTIES.push(p);openEditor({kind:"party",id:p.id})},function(e){creerView("Échec de la création : "+errTxt(e))});
   };
@@ -761,8 +798,8 @@ function rules(){
 function partiesView(msg){
   if(!ME)return authView("");
   view="parties";curParty=null; msg=(typeof msg==="string")?msg:"";
-  app.innerHTML='<div class="card">'+tabs("parties")+'<div class="eyebrow">Parties</div><h1 class="title">Rejoindre une partie</h1>'+
-   '<p class="lead">Colle le lien de la partie (ou son code) puis clique sur Rejoindre.</p>'+
+  app.innerHTML='<div class="card">'+tabs("parties")+'<div class="eyebrow">Parties</div><h1 class="title">'+(isProf()?"Parties":"Rejoindre une partie")+'</h1>'+
+   '<p class="lead">'+(isProf()?"Les professeurs ne peuvent pas jouer : tu peux ouvrir une partie pour la lancer et suivre le classement.":"Colle le lien de la partie (ou son code) puis clique sur Rejoindre.")+'</p>'+
    '<div class="row" style="margin:0"><input type="text" id="jl" placeholder="Lien ou code de la partie (ex. p-ab12c)" style="flex:1;min-width:200px"><button class="btn" id="jb">Rejoindre</button></div>'+
    '<div class="note" id="msg">'+esc(msg)+'</div><h3 class="sect">Parties disponibles</h3><div id="pl"></div>'+
    
@@ -781,7 +818,7 @@ function partiesView(msg){
     r.querySelector("small").innerHTML=p.items.length+" questions · code : "+esc(p.id)+" · joueurs : <span data-p=\""+esc(p.id)+"\">…</span>"+(p.max?" / "+p.max:"")+" · "+(p.etat==="attente"?"en attente":"lancée");
     var acts=r.querySelector(".acts");
     function add(label,cls,fn){var b=document.createElement("button");b.className="btn sm "+cls;b.textContent=label;b.onclick=fn;acts.appendChild(b)}
-    add(p.etat==="attente"?"Rejoindre la salle":"Jouer","",function(){play(p)});
+    add(isProf()?(p.etat==="attente"?"Ouvrir la salle":"Suivre la partie"):(p.etat==="attente"?"Rejoindre la salle":"Jouer"),"",function(){play(p)});
     add("Copier le lien","ghost",function(){
       var l=partyLink(p);
       if(navigator.clipboard&&navigator.clipboard.writeText){navigator.clipboard.writeText(l).then(function(){$("msg").textContent="Lien copié : "+l},function(){$("jl").value=l;$("msg").textContent="Copie le lien dans la case ci-dessus."})}
@@ -820,6 +857,7 @@ async function nouvelleManche(p){
   var pt=PARTIES.filter(function(x){return x.id===p.id})[0]||p; pt.etat="attente"; await saveParty(pt);
 }
 async function play(p){
+  if(isProf()&&!(p&&p.id))return partiesView("Les professeurs ne peuvent pas jouer au quiz.");
   curParty=p||null; i=0; score=0;
   if(!curParty){run=QUESTIONS.slice();if(run.length)show();return}
   var pp=PARTIES.filter(function(x){return x.id===curParty.id})[0]||curParty; curParty=pp;
@@ -944,6 +982,7 @@ function startLive(){
   });
 }
 function show(){
+  if(isProf())return partiesView("Les professeurs ne peuvent pas jouer au quiz.");
   locked=false; view="game"; stopTimer(); stopWait(); var d=run[i], opts=d.vf?["Vrai","Faux"]:shuffle(d.a), L=["A","B","C","D","E","F","G","H"], mh=mediaHtml(d), multi=!d.vf&&(d.c||1)>1;
   app.innerHTML='<div class="card"><div class="eyebrow">'+(curParty?esc(curParty.name):"Quiz sur la logistique")+(d.vf?" · Vrai ou faux":"")+'</div><div class="top"><span class="meta">Question '+(i+1)+'/'+run.length+'</span>'+
    '<div class="bar"><i id="p"></i></div><span class="meta">Points : <span id="s">'+score+'</span></span></div>'+
