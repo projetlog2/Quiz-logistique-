@@ -229,6 +229,7 @@ table.rk th{font-family:var(--fm); letter-spacing:.06em}
 .lvr:nth-child(1) .rk{color:var(--accent)}
 .lvr .av{line-height:0}
 .lvr .nm{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.lvr .pg{font-size:12px;color:var(--muted);white-space:nowrap}
 .lvr .ck{visibility:hidden;color:var(--ok);font-weight:700}
 .lvr.ok .ck{visibility:visible}
 .lvr .pt{font-weight:700;min-width:70px;text-align:right}
@@ -822,6 +823,7 @@ async function play(p){
   curParty=p||null; i=0; score=0;
   if(!curParty){run=QUESTIONS.slice();if(run.length)show();return}
   var pp=PARTIES.filter(function(x){return x.id===curParty.id})[0]||curParty; curParty=pp;
+  if(isHostOf(pp)){ if(pp.etat==="attente")return salle(pp); return hostScreen(pp) }
   if(dbRoot){
     try{
       var q=await dbRoot.collection("scores").where("partie","==",pp.id).get(), ids=q.docs.map(function(d){return d.data().uid});
@@ -853,6 +855,7 @@ async function salle(p){
   $("sl").textContent=mine(p)?"Les joueurs arrivent. Lance la partie quand tout le monde est prêt.":"En attente : le chef de la partie va la lancer.";
   $("qt").onclick=quitterSalle;
   if($("go"))$("go").onclick=function(){
+    if(!salleJ.length){$("msg").textContent="Attends qu’au moins un joueur rejoigne la salle avant de lancer.";return}
     var pt=PARTIES.filter(function(x){return x.id===p.id})[0]||p; $("go").disabled=true; pt.etat="lancee";
     saveParty(pt).catch(function(e){pt.etat="attente";$("go").disabled=false;$("msg").textContent="Échec du lancement : "+errTxt(e)});
   };
@@ -879,8 +882,39 @@ function salleMaj(){ /* appelé quand les parties changent */
   var np=PARTIES.filter(function(x){return x.id===curParty.id})[0];
   if(!np){sortirSalle();curParty=null;return partiesView("Cette partie a été supprimée.")}
   curParty=np;
-  if(np.etat==="lancee"){sortirSalle();i=0;score=0;run=np.items.slice();if(run.length)show();else start()}
+  if(np.etat==="lancee"){sortirSalle();if(isHostOf(np))return hostScreen(np);i=0;score=0;run=np.items.slice();if(run.length)show();else start()}
   else majSalle();
+}
+function isHostOf(p){return !!(ME&&(ME.role==="prof"||(p&&mine(p))))}
+function hostScreen(p){
+  view="host"; curParty=p; stopLive(); stopTimer(); stopWait(); livePid=p.id; liveRows=[];
+  app.innerHTML='<div class="card"><div class="eyebrow"></div><h1 class="title">Classement en direct</h1><p class="lead"><span class="pulse"></span> <span id="hs"></span></p><div class="live" id="lv"></div><div class="row" style="margin-top:12px"><button class="btn ghost" id="mn">Menu</button></div></div>';
+  app.querySelector(".eyebrow").textContent=p.name;
+  $("mn").onclick=function(){stopLive();start()};
+  dbRoot.collection("personnages").get().then(function(pq){pq.docs.forEach(function(d){var x=d.data(),l=lire(x.liste)||[];liveAV[d.id]=l.filter(function(c){return c.id===x.actif})[0]||l[0]||null});hostRender(p)}).catch(function(){});
+  liveUnsub=dbRoot.collection("scores").where("partie","==",p.id).onSnapshot(function(snap){
+    if(view!=="host"){stopLive();return}
+    liveRows=snap.docs.map(function(d){return d.data()}); hostRender(p);
+  });
+  hostRender(p);
+}
+function hostRender(p){
+  var box=$("lv"); if(!box){stopLive();return}
+  var n=(p.items||[]).length;
+  var rows=liveRows.slice().sort(function(a,b){return (b.points||0)-(a.points||0)||(a.t||0)-(b.t||0)});
+  var done=rows.filter(function(r){return r.fini===true}).length;
+  $("hs").textContent=rows.length+" joueur"+(rows.length>1?"s":"")+" · "+done+" ont terminé";
+  box.innerHTML='<div class="lvl" style="max-height:none"></div>';
+  var l=box.querySelector(".lvl");
+  rows.forEach(function(r,k){
+    var fin=r.fini===true, c=el('<div class="lvr'+(fin?' ok':'')+'"><span class="rk"></span><span class="av"></span><b class="nm"></b><span class="pg"></span><span class="ck">✓</span><span class="pt"></span></div>');
+    c.querySelector(".rk").textContent=k+1;
+    c.querySelector(".av").innerHTML=avatar(r.uid?liveAV[r.uid]:null,34);
+    c.querySelector(".nm").textContent=r.prenom+" "+r.nom;
+    c.querySelector(".pg").textContent=fin?"Terminé":"Question "+Math.min((r.qn||0)+1,n)+"/"+n;
+    c.querySelector(".pt").textContent=pl(r.points||0);
+    l.appendChild(c);
+  });
 }
 var liveUnsub=null, livePid=null, liveAV={}, liveRows=[];
 function stopLive(){if(liveUnsub){liveUnsub();liveUnsub=null}livePid=null}
