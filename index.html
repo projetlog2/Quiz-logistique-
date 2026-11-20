@@ -307,6 +307,67 @@ table.rk td{vertical-align:middle}
 .lvr[data-uid]{cursor:pointer}
 .lvr[data-uid]:hover{border-color:var(--accent)}
 </style>
+<style>
+/* ---------- Menu adaptatif : s'ajuste au format de l'appareil du joueur ---------- */
+body{min-height:100vh; min-height:100dvh;
+  padding-left:max(20px,env(safe-area-inset-left)); padding-right:max(20px,env(safe-area-inset-right))}
+
+/* Petit téléphone */
+@media (max-width:380px){
+  body{padding-left:max(12px,env(safe-area-inset-left)); padding-right:max(12px,env(safe-area-inset-right))}
+  .hm .hero{gap:12px}
+  .hm .hav svg{width:72px; height:72px}
+  .hm .ob{padding:14px; gap:12px}
+  .hm .ob b{font-size:17px}
+  .hm .row .btn{min-width:100%!important}
+}
+
+/* Tactile : cibles plus grandes, pas d'effet de survol collant */
+@media (hover:none) and (pointer:coarse){
+  .hm .ob,.hm .btn{min-height:52px}
+  .hm .ob:hover,.mi:hover,.tile:hover{transform:none}
+}
+
+/* Tablette (portrait) : le menu respire et les gros boutons passent sur 2 colonnes */
+@media (min-width:700px){
+  .wrap:has(>.hm){max-width:780px}
+  .hm{padding:44px 36px 32px; display:grid; grid-template-columns:1fr 1fr; gap:14px; align-content:start}
+  .hm>*{grid-column:1/-1; min-width:0}
+  .hm>.ob{grid-column:auto; margin:0}
+  .hm>.ob:only-of-type{grid-column:1/-1}
+  .hm>.tabs{margin:-8px 0 8px}
+  .hm .hero{gap:22px}
+  .hm .hav svg{width:120px; height:120px}
+  .hm .row{margin-top:0}
+  .hm .row .btn{min-width:0!important}
+}
+
+/* Grand écran (ordinateur, TV) */
+@media (min-width:1100px){
+  .wrap:has(>.hm){max-width:980px}
+  .hm{padding:52px 48px 40px}
+  .hm .title{font-size:clamp(44px,4.4vw,60px)}
+  .hm .lead{font-size:19px}
+  .hm .ob b{font-size:21px}
+  .hm .ob small{font-size:15px}
+}
+
+/* Récompenses */
+.chip.lock{opacity:.55; border-style:dashed}
+.unl{margin:18px 0 6px; padding:14px; border:2px solid var(--accent); border-radius:16px; background:var(--field); text-align:center; animation:in .4s ease}
+.unl-t{font-family:var(--fh); font-weight:700; color:var(--accent)}
+.unl-n{font-size:18px; font-weight:700; margin:2px 0}
+
+/* Paysage bas (téléphone couché) : on compacte et on cache le décor */
+@media (orientation:landscape) and (max-height:520px){
+  body{align-items:flex-start; padding-top:max(12px,env(safe-area-inset-top)); padding-bottom:12px}
+  .hm{padding:30px 22px 18px}
+  .hm .hav svg{width:64px; height:64px}
+  .hm .lead{margin:8px 0 14px; font-size:15px}
+  .hm .yard{display:none}
+  .wrap:has(>.hm){max-width:860px}
+}
+</style>
 <main class="wrap" id="app"></main>
 <script>
 var TITLE="Quiz sur la logistique";
@@ -396,6 +457,11 @@ var OPT={
  tenue:[["Aucune","aucune"],["T-shirt","tshirt"],["Gilet de sécurité","gilet"],["Costume","costume"],["Sweat","sweat"],["Maillot rayé","maillot"],["Bleu de travail","blouse"]],
  motif:[["Uni","uni"],["Points","points"],["Rayures","rayures"],["Damier","damier"],["Conteneurs","conteneurs"]]
 };
+/* ---------- Récompenses : 20 accessoires à débloquer en finissant 1er d'une partie ---------- */
+var REC=[["cou","medaille","Médaille d’or"],["chap","sorcier","Chapeau de sorcier"],["lun","masque","Masque de super-héros"],["cou","cape","Cape de héros"],["chap","pirate","Chapeau de pirate"],["lun","lcoeur","Lunettes cœur"],["chap","toque","Toque de chef"],["cou","chaine","Chaîne en or"],["chap","viking","Casque de viking"],["lun","clown","Nez de clown"],["cou","foulard","Foulard rouge"],["chap","beret","Béret"],["lun","letoile","Lunettes étoiles"],["cou","lei","Collier de fleurs"],["chap","audio","Casque audio"],["lun","cacheoeil","Cache-œil de pirate"],["cou","arcenciel","Écharpe arc-en-ciel"],["chap","antennes","Antennes"],["lun","barbe","Grande barbe"],["chap","aureole","Auréole"]];
+var REC_IDX={}; REC.forEach(function(r,n){OPT[r[0]].push([r[2],r[1]]);REC_IDX[r[1]]=n});
+function nbDeb(){return Math.min(REC.length,((typeof ME!=="undefined"&&ME&&ME.gains)||[]).length)}
+function debloque(key){var n=REC_IDX[key];return n===undefined||n<nbDeb()}
 var LISTE={}; Object.keys(OPT).forEach(function(k){LISTE[k]=OPT[k].map(function(o){return o[1]})});
 var COUL=[["Orange","#ffb15c"],["Rouge","#f58a8a"],["Rose","#f7a1c4"],["Violet","#c3a4f2"],["Bleu","#7cc4f5"],["Turquoise","#7fe0d4"],["Vert","#8fdc9f"],["Citron","#c9e87a"],["Jaune","#f7df6b"],["Marron","#c68a53"],["Beige","#ecd5b0"],["Blanc","#f6f6f6"],["Gris","#cbd2e1"],["Anthracite","#5b667d"],["Noir","#2b3350"]];
 var FONDS=[["Blanc","#ffffff"],["Bleu clair","#dcefff"],["Vert clair","#dff5e5"],["Rose clair","#fde4ee"],["Jaune clair","#fff4cc"],["Violet clair","#ece3fb"],["Gris clair","#eceff5"],["Orange clair","#ffe6cc"],["Marine","#14213d"],["Vert foncé","#1d5b43"]];
@@ -520,6 +586,13 @@ function avatar(c,w){
   else if(L==="monocle")h+='<circle cx="60" cy="54" r="9.5" fill="rgba(255,255,255,.3)" stroke="#c68a00" stroke-width="2.6"/><path d="M69 60Q76 70 71 84" fill="none" stroke="#c68a00" stroke-width="1.6"/>';
   else if(L==="moustache")h+='<path d="M35 67Q42 60 50 66Q58 60 65 67Q58 72 50 68Q42 72 35 67Z" fill="#6b3f1d" stroke="'+I+'" stroke-width="1.6" stroke-linejoin="round"/>';
   else if(L==="trois_d")h+='<rect x="29" y="47" width="20" height="14" rx="3" fill="rgba(230,57,70,.6)" '+kl+'/><rect x="51" y="47" width="20" height="14" rx="3" fill="rgba(0,180,216,.6)" '+kl+'/><path d="M49 54h2" '+kl+'/>';
+  /* récompenses : visage */
+  if(L==="masque")h+='<path fill-rule="evenodd" d="M26 50Q50 40 74 50Q74 62 62 62Q56 57 50 58Q44 57 38 62Q26 62 26 50ZM34 54a6 4 0 1 0 12 0a6 4 0 1 0-12 0ZM54 54a6 4 0 1 0 12 0a6 4 0 1 0-12 0Z" fill="#e63946" '+k+'/>';
+  else if(L==="clown")h+='<circle cx="50" cy="63" r="6" fill="#e63946" '+k+'/><circle cx="48" cy="61" r="1.8" fill="rgba(255,255,255,.75)"/>';
+  else if(L==="lcoeur")h+='<path transform="translate(40 55) scale(1.35)" d="M0 5C-7 0 -6 -6 -2 -6C-1 -6 0 -5 0 -4C0 -5 1 -6 2 -6C6 -6 7 0 0 5Z" fill="rgba(255,77,109,.7)" stroke="'+I+'" stroke-width="1.6"/><path transform="translate(60 55) scale(1.35)" d="M0 5C-7 0 -6 -6 -2 -6C-1 -6 0 -5 0 -4C0 -5 1 -6 2 -6C6 -6 7 0 0 5Z" fill="rgba(255,77,109,.7)" stroke="'+I+'" stroke-width="1.6"/><path d="M49 52h2" '+kl+'/>';
+  else if(L==="letoile")h+=star(40,54,1.5,"rgba(247,198,0,.6)")+star(60,54,1.5,"rgba(247,198,0,.6)")+'<path d="M48 54h4" '+kl+'/>';
+  else if(L==="cacheoeil")h+='<path d="M27 41L73 63" fill="none" stroke="'+I+'" stroke-width="2.4"/><ellipse cx="60" cy="54" rx="9" ry="8" fill="'+I+'"/>';
+  else if(L==="barbe")h+='<path d="M31 68Q30 94 50 95Q70 94 69 68Q62 82 50 82Q38 82 31 68Z" fill="#6b3f1d" '+k+'/>';
   /* chapeau */
   var H=c.chap;
   if(H==="casque")h+='<path d="M24 42Q50 4 76 42Z" fill="#f7c600" '+k+'/><rect x="20" y="40" width="60" height="7" rx="3" fill="#f7c600" '+k+'/>';
@@ -531,6 +604,15 @@ function avatar(c,w){
   else if(H==="cowboy")h+='<path d="M32 42Q30 14 50 16Q70 14 68 42Z" fill="#a56a3a" '+k+'/><rect x="31" y="33" width="38" height="6" fill="#5a3a22"/><ellipse cx="50" cy="43" rx="38" ry="7" fill="#a56a3a" '+k+'/>';
   else if(H==="fete")h+='<path d="M50 10L34 42L66 42Z" fill="#7b2ff7" '+k+'/><circle cx="47" cy="27" r="2.3" fill="#f7c600"/><circle cx="54" cy="34" r="2.3" fill="#ff8fab"/><circle cx="43" cy="37" r="2" fill="#ffffff"/><circle cx="50" cy="9" r="4" fill="#f7c600" '+k+'/>';
   else if(H==="fleurs")[[28,42,"#ff8fab"],[36,34,"#f7c600"],[50,31,"#ff8fab"],[64,34,"#f7c600"],[72,42,"#c3a4f2"]].forEach(function(f){h+='<circle cx="'+f[0]+'" cy="'+f[1]+'" r="5.5" fill="'+f[2]+'" '+kt+'/><circle cx="'+f[0]+'" cy="'+f[1]+'" r="1.8" fill="#ffffff"/>'});
+  /* récompenses : chapeaux */
+  if(H==="sorcier")h+='<path d="M31 43L46 10Q50 3 55 10L69 43Z" fill="#5b3fd0" '+k+'/><ellipse cx="50" cy="43" rx="30" ry="6" fill="#5b3fd0" '+k+'/><rect x="35" y="33" width="30" height="5" fill="#f7c600"/>'+star(49,22,.8,"#ffd84d")+star(44,31,.5,"#ffd84d");
+  else if(H==="pirate")h+='<path d="M22 44Q28 14 50 14Q72 14 78 44Q50 34 22 44Z" fill="#26263f" '+k+'/><circle cx="50" cy="26" r="5.5" fill="#ffffff"/><circle cx="48" cy="25" r="1.2" fill="#26263f"/><circle cx="52.5" cy="25" r="1.2" fill="#26263f"/><path d="M43 33L57 38M57 33L43 38" stroke="#ffffff" stroke-width="2" stroke-linecap="round"/>';
+  else if(H==="toque")h+='<circle cx="37" cy="24" r="10" fill="#ffffff" '+k+'/><circle cx="63" cy="24" r="10" fill="#ffffff" '+k+'/><circle cx="50" cy="17" r="11" fill="#ffffff" '+k+'/><rect x="34" y="28" width="32" height="15" rx="2" fill="#ffffff" '+k+'/><path d="M42 32V40M50 32V40M58 32V40" stroke="rgba(20,33,61,.15)" stroke-width="1.6"/>';
+  else if(H==="viking")h+='<path d="M29 33Q14 31 14 12Q22 22 30 22Z" fill="#f4ead2" '+k+'/><path d="M71 33Q86 31 86 12Q78 22 70 22Z" fill="#f4ead2" '+k+'/><path d="M28 42Q28 16 50 16Q72 16 72 42Z" fill="#9aa3b5" '+k+'/><rect x="28" y="36" width="44" height="6" rx="2" fill="#6b7488" '+k+'/>';
+  else if(H==="beret")h+='<path d="M24 40Q20 18 48 17Q80 17 76 38Q50 46 24 40Z" fill="#e63946" '+k+'/><circle cx="50" cy="15" r="3" fill="#e63946" '+k+'/>';
+  else if(H==="audio")h+='<path d="M24 52Q24 14 50 14Q76 14 76 52" fill="none" stroke="#26263f" stroke-width="6" stroke-linecap="round"/><rect x="17" y="46" width="12" height="20" rx="5" fill="#e63946" '+k+'/><rect x="71" y="46" width="12" height="20" rx="5" fill="#e63946" '+k+'/>';
+  else if(H==="antennes")h+='<path d="M40 38Q36 22 32 14M60 38Q64 22 68 14" fill="none" stroke="#14213d" stroke-width="3" stroke-linecap="round"/><circle cx="32" cy="13" r="5" fill="#f7c600" '+k+'/><circle cx="68" cy="13" r="5" fill="#ff4d6d" '+k+'/>';
+  else if(H==="aureole")h+='<ellipse cx="50" cy="14" rx="19" ry="5" fill="none" stroke="#ffd84d" stroke-width="4.5"/><ellipse cx="50" cy="12.8" rx="19" ry="4.6" fill="none" stroke="rgba(255,255,255,.7)" stroke-width="1.2"/>';
   /* cou */
   var N=c.cou;
   if(N==="noeud")h+='<path d="M50 90L35 81L35 99Z M50 90L65 81L65 99Z" fill="#e63946" '+k+'/><circle cx="50" cy="90" r="4" fill="#e63946" '+k+'/>';
@@ -538,6 +620,13 @@ function avatar(c,w){
   else if(N==="cravate")h+='<path d="M46 88L54 88L56 104L50 111L44 104Z" fill="#4361ee" '+k+'/><path d="M45 88L55 88L53 93L47 93Z" fill="#2f4bc4" '+kt+'/>';
   else if(N==="collier")h+='<path d="M32 87Q50 102 68 87" fill="none" stroke="#f7c600" stroke-width="3" stroke-linecap="round"/><circle cx="50" cy="98" r="4" fill="#e63946" '+k+'/>';
   else if(N==="badge")h+='<path d="M40 87L50 104L60 87" fill="none" stroke="#e63946" stroke-width="3" stroke-linejoin="round"/><rect x="43" y="102" width="14" height="14" rx="2.5" fill="#ffffff" '+k+'/><circle cx="50" cy="107" r="2.4" fill="#14213d"/><path d="M46.5 112.5H53.5" stroke="#14213d" stroke-width="2"/>';
+  /* récompenses : cou */
+  if(N==="cape")h+='<path d="M27 82Q15 90 10 100H33Z M73 82Q85 90 90 100H67Z" fill="#e63946" '+k+'/><path d="M30 83Q50 93 70 83" fill="none" stroke="#c1121f" stroke-width="5" stroke-linecap="round"/><circle cx="50" cy="89" r="3.5" fill="#f7c600" '+k+'/>';
+  else if(N==="medaille")h+='<path d="M39 80L50 91L61 80" fill="none" stroke="#2f6fed" stroke-width="4.5" stroke-linejoin="round"/><circle cx="50" cy="95" r="6.5" fill="#f7c600" '+k+'/><circle cx="50" cy="95" r="3.4" fill="none" stroke="#c78a00" stroke-width="1.6"/>';
+  else if(N==="chaine")h+='<path d="M31 82Q50 98 69 82" fill="none" stroke="#14213d" stroke-width="6" stroke-linecap="round"/><path d="M31 82Q50 98 69 82" fill="none" stroke="#f7c600" stroke-width="3.6" stroke-linecap="round" stroke-dasharray="5 2.2"/><path d="M50 88L55 93L50 98L45 93Z" fill="#7dd3fc" '+k+'/>';
+  else if(N==="foulard")h+='<path d="M29 81L71 81L50 99Z" fill="#e63946" '+k+'/><circle cx="41" cy="85" r="1.4" fill="#ffffff"/><circle cx="50" cy="84" r="1.4" fill="#ffffff"/><circle cx="59" cy="85" r="1.4" fill="#ffffff"/><circle cx="50" cy="91" r="1.4" fill="#ffffff"/>';
+  else if(N==="lei")[[31,82,"#ff8fab"],[36,87.5,"#f7c600"],[42,91.5,"#c3a4f2"],[50,93.5,"#ff8fab"],[58,91.5,"#f7c600"],[64,87.5,"#c3a4f2"],[69,82,"#ff8fab"]].forEach(function(f){h+='<circle cx="'+f[0]+'" cy="'+f[1]+'" r="4.6" fill="'+f[2]+'" '+kt+'/><circle cx="'+f[0]+'" cy="'+f[1]+'" r="1.5" fill="#ffffff"/>'});
+  else if(N==="arcenciel")h+='<rect x="26" y="82" width="48" height="11" rx="5" fill="#f7c600" '+k+'/><rect x="29" y="82.8" width="42" height="3.2" rx="1.5" fill="#e63946"/><rect x="29" y="89.7" width="42" height="3" rx="1.5" fill="#2f6fed"/><rect x="60" y="86" width="10" height="17" rx="3" fill="#2f6fed" '+k+'/>';
   return h+'</g></g></svg>';
 }
 function yard(){
@@ -548,8 +637,8 @@ function yard(){
   return h+'<path class="gr" d="M0 101H520"/></svg>';
 }
 function actif(){var l=(ME&&ME.persos)||[];return l.filter(function(c){return c.id===ME.actif})[0]||l[0]||null}
-async function loadPersos(){try{var sn=await dbRoot.doc("personnages/"+ME.id).get(),d=sn.exists&&sn.data();ME.persos=d?(lire(d.liste)||[]):[];ME.actif=(d&&d.actif)||""}catch(e){ME.persos=[];ME.actif=""}}
-function savePersos(){return dbRoot.doc("personnages/"+ME.id).set({liste:JSON.stringify(ME.persos),actif:ME.actif||""})}
+async function loadPersos(){try{var sn=await dbRoot.doc("personnages/"+ME.id).get(),d=sn.exists&&sn.data();ME.persos=d?(lire(d.liste)||[]):[];ME.actif=(d&&d.actif)||"";ME.gains=d?(lire(d.gains)||[]):[]}catch(e){ME.persos=[];ME.actif="";ME.gains=[]}}
+function savePersos(){return dbRoot.doc("personnages/"+ME.id).update({liste:JSON.stringify(ME.persos),actif:ME.actif||""})}
 function persView(msg){
   if(!ME)return authView(""); view="pers"; msg=typeof msg==="string"?msg:"";
   app.innerHTML='<div class="card">'+tabs("pers")+'<div class="eyebrow">Personnages</div><h1 class="title">Mes personnages</h1>'+
@@ -578,7 +667,7 @@ function persEditor(c0,isNew){
   var SECT={animal:[["Animal","espece"],["Couleur du corps","couleur",1],["Marques du visage","deco"]],visage:[["Yeux","yeux"],["Bouche","bouche"],["Accessoire du visage","lun"]],look:[["Chapeau","chap"],["Cou","cou"],["Tenue","tenue"],["Couleur de la tenue","tenueC",1]],fond:[["Couleur du fond","fond",1],["Motif du fond","motif"]]};
   app.innerHTML='<div class="card"><div class="eyebrow">Personnages</div><h1 class="title">'+(isNew?"Créer un personnage":"Modifier le personnage")+'</h1>'+
    '<div class="pv" id="pv"></div><label>Nom du personnage</label><input type="text" id="pnm" maxlength="20">'+
-   '<div class="tabs ptabs" id="ptabs"></div><div id="pbody"></div><div class="note" id="msg"></div>'+
+   '<div class="note" id="pgain"></div><div class="tabs ptabs" id="ptabs"></div><div id="pbody"></div><div class="note" id="msg"></div>'+
    '<div class="row"><button class="btn" id="ps">Enregistrer</button><button class="btn ghost" id="pr">Au hasard</button><button class="btn ghost" id="pb">Retour</button></div></div>';
   $("pnm").value=c.nom||""; $("pnm").oninput=function(e){c.nom=e.target.value};
   function pv(){$("pv").innerHTML=avatar(c,150)}
@@ -594,8 +683,8 @@ function persEditor(c0,isNew){
       var row=document.createElement("div"); row.className="chips"; box.appendChild(row);
       list.forEach(function(o){
         var b=document.createElement("button"); b.className="chip"+(isCol?" sw":"")+(c[key]===o[1]?" on":"");
-        if(isCol){b.style.background=o[1];b.title=o[0];b.setAttribute("aria-label",o[0])}else b.textContent=o[0];
-        b.onclick=function(){c[key]=o[1];pv();Array.prototype.forEach.call(row.children,function(x){x.classList.remove("on")});b.classList.add("on")};
+        if(isCol){b.style.background=o[1];b.title=o[0];b.setAttribute("aria-label",o[0])}else{b.textContent=(debloque(o[1])?"":"🔒 ")+o[0];if(!debloque(o[1]))b.classList.add("lock")}
+        b.onclick=function(){if(!isCol&&!debloque(o[1])){$("msg").textContent="🔒 "+o[0]+" : gagne une partie en 1re place pour le débloquer.";return}$("msg").textContent="";c[key]=o[1];pv();Array.prototype.forEach.call(row.children,function(x){x.classList.remove("on")});b.classList.add("on")};
         row.appendChild(b);
       });
       if(isCol){
@@ -607,8 +696,9 @@ function persEditor(c0,isNew){
     });
   }
   function pick1(a){return a[Math.floor(Math.random()*a.length)]}
-  pv(); tb(); body();
-  $("pr").onclick=function(){Object.keys(OPT).forEach(function(k){c[k]=pick1(OPT[k])[1]});c.couleur=pick1(COUL)[1];c.tenueC=pick1(COUL)[1];c.fond=pick1(FONDS)[1];pv();body()};
+  function pg(){var n=nbDeb(),nx=REC[n];$("pgain").textContent="🏆 Accessoires débloqués : "+n+" / "+REC.length+(nx?" · Gagne une partie en 1re place pour débloquer le prochain : "+nx[2]+".":" · Tu les as tous !")}
+  pg(); pv(); tb(); body();
+  $("pr").onclick=function(){Object.keys(OPT).forEach(function(k){c[k]=pick1(OPT[k].filter(function(o){return debloque(o[1])}))[1]});c.couleur=pick1(COUL)[1];c.tenueC=pick1(COUL)[1];c.fond=pick1(FONDS)[1];pv();body()};
   $("pb").onclick=function(){persView("")};
   $("ps").onclick=function(){
     var nm=(c.nom||"").trim(); if(!nm){$("msg").textContent="Donne un nom à ton personnage.";return}
@@ -819,7 +909,7 @@ function creerView(msg){
 }
 function rules(){
   app.innerHTML='<div class="card">'+tabs("home")+'<div class="eyebrow">Règles du jeu</div><h1 class="title">Comment ça marche ?</h1><p class="lead"></p>'+
-   '<ul class="rules"><li>Le nombre de réponses proposées dépend de la partie. Certaines questions sont des vrai ou faux, d’autres ont une ou plusieurs bonnes réponses.</li><li>La correction s’affiche juste après ton choix.</li><li>Question à une seule bonne réponse = 1 point.</li><li>Vrai ou faux = 2 points.</li><li>Question à plusieurs bonnes réponses = 1 point par bonne réponse cochée (une réponse fausse cochée retire 1 point, sans descendre sous 0).</li><li>Bonus de rapidité (parties) : le premier à répondre juste gagne 3 points en plus, le deuxième 2 points, le troisième 1 point.</li><li>Pour jouer une partie précise, utilise son lien ou son code dans l’onglet Parties.</li></ul>'+
+   '<ul class="rules"><li>Le nombre de réponses proposées dépend de la partie. Certaines questions sont des vrai ou faux, d’autres ont une ou plusieurs bonnes réponses.</li><li>La correction s’affiche juste après ton choix.</li><li>Question à une seule bonne réponse = 1 point.</li><li>Vrai ou faux = 2 points.</li><li>Question à plusieurs bonnes réponses = 1 point par bonne réponse cochée (une réponse fausse cochée retire 1 point, sans descendre sous 0).</li><li>Bonus de rapidité (parties) : le premier à répondre juste gagne 3 points en plus, le deuxième 2 points, le troisième 1 point.</li><li>Termine 1er d’une partie (avec au moins un autre joueur) : tu débloques un nouvel accessoire pour ton personnage. Il y en a 20 à gagner.</li><li>Pour jouer une partie précise, utilise son lien ou son code dans l’onglet Parties.</li></ul>'+
    '<div class="row"><button class="btn" id="b">Retour au menu</button></div></div>';
   bindTabs();$("b").onclick=start;
 }
@@ -899,7 +989,7 @@ async function play(p){
       if(ids.indexOf(ME.id)<0){
         if(pp.etat==="lancee"){curParty=null;return partiesView("Cette partie a déjà commencé. Tu ne peux plus la rejoindre.")}
         if(pp.max&&ids.length>=pp.max){curParty=null;return partiesView("Cette partie est complète : "+pp.max+" joueurs au maximum.")}
-        await dbRoot.doc("scores/"+pp.id+"~"+ME.id).set({partie:pp.id,uid:ME.id,prenom:ME.prenom,nom:ME.nom,points:0,total:totalPts(pp.items),fini:false,t:Date.now()});
+        await dbRoot.doc("scores/"+pp.id+"~"+ME.id).set({partie:pp.id,uid:ME.id,prenom:ME.prenom,nom:ME.nom,points:0,total:totalPts(pp.items),fini:false,m:Date.now(),t:Date.now()});
       }
     }catch(e){curParty=null;return partiesView("Impossible de rejoindre la salle d’attente : "+errTxt(e))}
   }
@@ -1198,7 +1288,7 @@ function pid(){return curParty?curParty.id:"principal"}
 async function saveScore(){
   try{
     var ref=dbRoot.doc("scores/"+pid()+"~"+ME.id), sn=await ref.get(), old=sn.exists&&sn.data();
-    if(!old||old.fini===false||score>old.points)await ref.set({partie:pid(),uid:ME.id,prenom:ME.prenom,nom:ME.nom,points:score,total:totalPts(run),fini:true,rep:JSON.stringify(ANS),t:Date.now()});
+    if(!old||old.fini===false||score>old.points)await ref.set({partie:pid(),uid:ME.id,prenom:ME.prenom,nom:ME.nom,points:score,total:totalPts(run),fini:true,rep:JSON.stringify(ANS),m:(old&&old.m)||Date.now(),t:Date.now()});
   }catch(e){}
 }
 async function loadBoard(){
@@ -1286,7 +1376,45 @@ function end(){
   $("re").onclick=function(){play(curParty)}; $("mn").onclick=start;
   countUp(base);
   setTimeout(function(){if($("re")){confettis(30+ns*20);if(ns>=2)canons()}},450);
-  saveScore().then(loadBoard);
+  saveScore().then(function(){loadBoard();suivreVictoire()});
+}
+
+
+/* ---------- Victoire : un accessoire débloqué à chaque 1re place ---------- */
+var VTOK=0;
+async function enregistrerVictoire(key){
+  var ref=dbRoot.doc("personnages/"+ME.id), sn=await ref.get(), d=sn.exists&&sn.data(), g=(d&&lire(d.gains))||[];
+  if(g.indexOf(key)>=0||g.length>=REC.length){ME.gains=g;return -1}
+  g.push(key); await ref.update({gains:JSON.stringify(g)}); ME.gains=g;
+  return g.length-1;
+}
+function suivreVictoire(){
+  if(!(curParty&&curParty.id&&dbRoot&&ME&&!isProf()))return;
+  var id=curParty.id, tok=++VTOK;
+  (async function tour(n){
+    try{
+      var q=await dbRoot.collection("scores").where("partie","==",id).get(), all=q.docs.map(function(d){return d.data()});
+      var fin=all.filter(function(r){return r.fini!==false}).sort(function(a,b){return b.points-a.points||a.t-b.t});
+      var moi=all.filter(function(r){return r.uid===ME.id})[0];
+      if(fin.length<all.length&&n<30)return setTimeout(function(){tour(n+1)},3000);
+      if(!moi||fin.length<2||fin[0].uid!==ME.id)return;
+      var k=await enregistrerVictoire(id+"~"+(moi.m||0));
+      if(k>=0)annonceRec(k,tok);
+    }catch(e){}
+  })(0);
+}
+function annonceRec(k,tok){
+  var r=REC[k]; if(!r)return;
+  var h3=app.querySelector(".sect");
+  if(!(tok===VTOK&&h3&&$("board")&&$("re")))return toast("🏆 Tu as gagné ! Accessoire débloqué : "+r[2]+". Va dans « Mes personnages » pour l’équiper.");
+  var c=actif(), cc=Object.assign({},c||{}); cc[r[0]]=r[1];
+  var d=document.createElement("div"); d.className="unl";
+  d.innerHTML='<div class="unl-t">🏆 Première place ! Accessoire débloqué</div><div class="pv"></div><div class="unl-n"></div><div class="row" style="justify-content:center;margin-top:8px"><button class="btn sm" id="unl-eq"></button></div>';
+  d.querySelector(".pv").innerHTML=avatar(cc,96); d.querySelector(".unl-n").textContent=r[2];
+  var b=d.querySelector("#unl-eq");
+  if(!c){b.textContent="Créer mon personnage";b.onclick=function(){persView("")}}
+  else{b.textContent="Équiper maintenant";b.onclick=function(){c[r[0]]=r[1];b.disabled=true;savePersos().then(function(){b.textContent="Équipé ✓"},function(){b.disabled=false;b.textContent="Échec, réessaie"})}}
+  h3.parentNode.insertBefore(d,h3);
 }
 
 /* ---------- Éditeur (admin) ---------- */
