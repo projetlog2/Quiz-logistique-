@@ -296,6 +296,16 @@ table.rk td{vertical-align:middle}
 .cf.s4{width:15px; height:15px; clip-path:polygon(50% 0,61% 35%,98% 35%,68% 57%,79% 91%,50% 70%,21% 91%,32% 57%,2% 35%,39% 35%)}
 .cf.cb{top:auto; bottom:0; animation:none}
 </style>
+<style>
+.tags{display:flex;flex-wrap:wrap;gap:8px;margin:0 0 12px}
+.tag{font-size:12px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;padding:4px 10px;border-radius:999px;border:1.5px solid var(--accent);color:var(--accent)}
+.tag.cu{background:var(--accent);color:#14213d}
+.rv .q,.rv .media,.rv .opts{animation:deblur 3s cubic-bezier(.3,.6,.4,1) forwards;pointer-events:none;user-select:none}
+@keyframes deblur{from{filter:blur(18px);opacity:.55}to{filter:blur(0);opacity:1}}
+@media (prefers-reduced-motion:reduce){.rv .q,.rv .media,.rv .opts{animation:none}}
+.lvr[data-uid]{cursor:pointer}
+.lvr[data-uid]:hover{border-color:var(--accent)}
+</style>
 <main class="wrap" id="app"></main>
 <script>
 var TITLE="Quiz sur la logistique";
@@ -316,9 +326,9 @@ var DEFAULTS=[
 ];
 var VFDEF=DEFAULTS.filter(function(x){return x.vf});
 var OKID=/^[0-9a-f]{32}$/, assetsApi=null;
-function cp(x){var o={q:x.q,a:x.a.slice()};if(x.vf)o.vf=true;if(x.img)o.img=x.img;if(x.vid)o.vid=x.vid;if(x.tm)o.tm=x.tm;if(x.c>1)o.c=x.c;return o}
+function cp(x){var o={q:x.q,a:x.a.slice()};if(x.vf)o.vf=true;if(x.lb)o.lb=x.lb;if(x.img)o.img=x.img;if(x.vid)o.vid=x.vid;if(x.tm)o.tm=x.tm;if(x.c>1)o.c=x.c;return o}
 function tmOf(d){var t=parseInt(d&&d.tm,10);return t>=5&&t<=300?t:30}
-function ml(x,o){var c=parseInt(x.c,10);if(!o.vf&&c>1&&c<=o.a.length)o.c=c;var t=parseInt(x.tm,10);if(t>=5&&t<=300&&t!==30)o.tm=t;if(x.img&&OKID.test(x.img))o.img=x.img;if(x.vid&&OKID.test(x.vid))o.vid=x.vid;return o}
+function ml(x,o){var c=parseInt(x.c,10);if(!o.vf&&c>1&&c<=o.a.length)o.c=c;var t=parseInt(x.tm,10);if(t>=5&&t<=300&&t!==30)o.tm=t;if(typeof x.lb==="string"&&x.lb.trim())o.lb=x.lb.trim().slice(0,30);if(x.img&&OKID.test(x.img))o.img=x.img;if(x.vid&&OKID.test(x.vid))o.vid=x.vid;return o}
 function mediaHtml(d){var h="";if(d.img&&OKID.test(d.img))h+='<img class="media" alt="" src="/_blob/'+d.img+'">';if(d.vid&&OKID.test(d.vid))h+='<video class="media" controls playsinline preload="metadata" src="/_blob/'+d.vid+'"></video>';return h}
 var ART=location.origin+location.pathname;
 var QUESTIONS=DEFAULTS.slice(), PARTIES=[], curParty=null, run=[], i=0, score=0, locked=false, isAdmin=false;
@@ -830,7 +840,7 @@ function partiesView(msg){
         var b=ev.target; if(b.dataset.ok!=="1"){b.dataset.ok="1";b.textContent="Confirmer (efface les scores)";return}
         b.disabled=true; nouvelleManche(p).then(function(){partiesView("La partie est de nouveau en attente.")},function(e){partiesView("Échec : "+errTxt(e))});
       });
-      add("Supprimer","danger",function(){dbRoot.doc("parties/"+p.id).delete().then(function(){PARTIES=PARTIES.filter(function(x){return x.id!==p.id});partiesView("Partie supprimée.")},function(e){partiesView("Échec de la suppression : "+errTxt(e))})});
+      add("Supprimer","danger",function(){dbRoot.doc("parties/"+p.id).delete().then(function(){purgerScores(p.id);PARTIES=PARTIES.filter(function(x){return x.id!==p.id});partiesView("Partie supprimée.")},function(e){partiesView("Échec de la suppression : "+errTxt(e))})});
     }
     pl.appendChild(r);
   });
@@ -858,7 +868,7 @@ async function nouvelleManche(p){
 }
 async function play(p){
   if(isProf()&&!(p&&p.id))return partiesView("Les professeurs ne peuvent pas jouer au quiz.");
-  curParty=p||null; i=0; score=0;
+  curParty=p||null; i=0; score=0; ANS=[];
   if(!curParty){run=QUESTIONS.slice();if(run.length)show();return}
   var pp=PARTIES.filter(function(x){return x.id===curParty.id})[0]||curParty; curParty=pp;
   if(isHostOf(pp)){ if(pp.etat==="attente")return salle(pp); return hostScreen(pp) }
@@ -936,12 +946,43 @@ function hostScreen(p){
   });
   hostRender(p);
 }
+function stopPov(){if(povUnsub){povUnsub();povUnsub=null}}
+function povView(p,uid){
+  stopLive(); stopPov(); stopTimer(); stopWait(); view="pov"; curParty=p; var row=null, idx=null;
+  app.innerHTML='<div class="card"><div class="eyebrow"></div><h1 class="title">Vue du joueur</h1><div class="who2" id="pv-who" style="margin:6px 0 14px"></div><div id="pv"></div>'+
+   '<div class="row" style="margin-top:12px"><button class="btn ghost sm" id="pv-prev">← Question précédente</button><button class="btn ghost sm" id="pv-live">En direct</button><button class="btn ghost sm" id="pv-next">Question suivante →</button></div>'+
+   '<div class="row"><button class="btn ghost" id="pv-bk">Retour au classement</button></div></div>';
+  app.querySelector(".eyebrow").textContent=p.name;
+  var items=p.items||[], n=items.length;
+  function cur(){if(!row)return 0;if(row.fini===true)return Math.max(0,n-1);return Math.min(row.vu!=null?row.vu:(row.qn||0),Math.max(0,n-1))}
+  function draw(){
+    if(view!=="pov"||!$("pv")){stopPov();return}
+    var r=row||{}, k=idx==null?cur():Math.max(0,Math.min(idx,n-1)), d=items[k]; if(!d){$("pv").textContent="Aucune question.";return}
+    $("pv-who").innerHTML=avatar(liveAV[uid]||null,44)+'<div><b></b><div class="note" style="margin:0"></div></div>';
+    $("pv-who").querySelector("b").textContent=(r.prenom||"")+" "+(r.nom||"");
+    var rep=lire(r.rep)||[], answered=(r.qn||0)>k||(r.fini===true), sel=rep[k], selA=Array.isArray(sel)?sel:(sel?[sel]:[]);
+    var goods=d.vf?[d.a[0]]:d.a.slice(0,d.c||1), ok=answered&&goods.length===selA.length&&goods.every(function(g){return selA.indexOf(g)>=0});
+    $("pv-who").querySelector(".note").textContent=pl(r.points||0)+" · "+(r.fini===true?"a terminé le quiz":(idx==null?"est sur la question "+(k+1)+"/"+n:"tu regardes la question "+(k+1)+"/"+n));
+    var st=!answered?"Le joueur est en train de répondre…":(sel===null||selA.length===0?"Temps écoulé : pas de réponse.":(ok?"Bonne réponse !":"Réponse fausse."));
+    $("pv").innerHTML=tagsHtml(d)+'<h2 class="q"></h2>'+mediaHtml(d)+'<div class="opts" id="pv-o"></div><div class="fb'+(answered?(ok?" good":" bad"):"")+'" id="pv-fb"></div>';
+    $("pv").querySelector(".q").textContent=d.q; $("pv-fb").textContent=st;
+    d.a.forEach(function(t,m){var b=document.createElement("button");b.className="opt";b.disabled=true;var g=goods.indexOf(t)>=0;
+      if(answered&&g)b.classList.add("right"); if(answered&&selA.indexOf(t)>=0&&!g)b.classList.add("wrong");
+      b.innerHTML='<span class="l">'+"ABCDEFGH"[m]+'</span><span></span>';b.lastChild.textContent=t+(g?"  ✓":"")+(answered&&selA.indexOf(t)>=0?"  ← choix du joueur":"");$("pv-o").appendChild(b)});
+  }
+  $("pv-prev").onclick=function(){idx=Math.max(0,(idx==null?cur():idx)-1);draw()};
+  $("pv-next").onclick=function(){var v=(idx==null?cur():idx)+1;idx=v>=n-1?n-1:v;draw()};
+  $("pv-live").onclick=function(){idx=null;draw()};
+  $("pv-bk").onclick=function(){stopPov();hostScreen(p)};
+  povUnsub=dbRoot.doc("scores/"+p.id+"~"+uid).onSnapshot(function(sn){row=sn.exists?sn.data():null;draw()});
+  draw();
+}
 function hostRender(p){
   var box=$("lv"); if(!box){stopLive();return}
   var n=(p.items||[]).length;
   var rows=liveRows.slice().sort(function(a,b){return (b.points||0)-(a.points||0)||(a.t||0)-(b.t||0)});
   var done=rows.filter(function(r){return r.fini===true}).length;
-  $("hs").textContent=rows.length+" joueur"+(rows.length>1?"s":"")+" · "+done+" ont terminé";
+  $("hs").textContent=rows.length+" joueur"+(rows.length>1?"s":"")+" · "+done+" ont terminé"+(rows.length?" · touche un joueur pour voir son écran":"");
   box.innerHTML='<div class="lvl" style="max-height:none"></div>';
   var l=box.querySelector(".lvl");
   rows.forEach(function(r,k){
@@ -949,6 +990,7 @@ function hostRender(p){
     c.querySelector(".rk").textContent=k+1;
     c.querySelector(".av").innerHTML=avatar(r.uid?liveAV[r.uid]:null,34);
     c.querySelector(".nm").textContent=r.prenom+" "+r.nom;
+    if(r.uid){c.setAttribute("data-uid",r.uid);c.title="Voir l’écran de ce joueur";c.onclick=function(){povView(p,r.uid)}}
     c.querySelector(".pg").textContent=fin?"Terminé":"Question "+Math.min((r.qn||0)+1,n)+"/"+n;
     c.querySelector(".pt").textContent=pl(r.points||0);
     l.appendChild(c);
@@ -981,12 +1023,19 @@ function startLive(){
     liveRows=snap.docs.map(function(d){return d.data()}); renderLive(liveRows);
   });
 }
+var REVTOK=0, ANS=[], povUnsub=null;
+function tagsHtml(d){
+  var multi=!d.vf&&(d.c||1)>1, t=[d.vf?"Vrai ou faux":(multi?"Plusieurs réponses":"Une seule réponse")], h="";
+  t.forEach(function(x){h+='<span class="tag">'+esc(x)+'</span>'});
+  if(d.lb&&t.indexOf(d.lb)<0)h+='<span class="tag cu">'+esc(d.lb)+'</span>';
+  return '<div class="tags">'+h+'</div>';
+}
 function show(){
   if(isProf())return partiesView("Les professeurs ne peuvent pas jouer au quiz.");
-  locked=false; view="game"; stopTimer(); stopWait(); var d=run[i], opts=d.vf?["Vrai","Faux"]:shuffle(d.a), L=["A","B","C","D","E","F","G","H"], mh=mediaHtml(d), multi=!d.vf&&(d.c||1)>1;
-  app.innerHTML='<div class="card"><div class="eyebrow">'+(curParty?esc(curParty.name):"Quiz sur la logistique")+(d.vf?" · Vrai ou faux":"")+'</div><div class="top"><span class="meta">Question '+(i+1)+'/'+run.length+'</span>'+
+  locked=true; var rvTok=++REVTOK; view="game"; stopTimer(); stopWait(); var d=run[i], opts=d.vf?["Vrai","Faux"]:shuffle(d.a), L=["A","B","C","D","E","F","G","H"], mh=mediaHtml(d), multi=!d.vf&&(d.c||1)>1;
+  app.innerHTML='<div class="card"><div class="eyebrow">'+(curParty?esc(curParty.name):"Quiz sur la logistique")+'</div>'+tagsHtml(d)+'<div class="top"><span class="meta">Question '+(i+1)+'/'+run.length+'</span>'+
    '<div class="bar"><i id="p"></i></div><span class="meta">Points : <span id="s">'+score+'</span></span></div>'+
-   '<div class="timer" id="tm"><span>⏱</span><div class="tb"><i id="tbi"></i></div><b id="tt">30 s</b></div><h2 class="q"></h2>'+mh+'<div class="opts" id="o"></div><div class="fb" id="fb"></div><div class="note hidden" id="wt"></div>'+
+   '<div class="timer" id="tm"><span>⏱</span><div class="tb"><i id="tbi"></i></div><b id="tt">'+tmOf(d)+' s</b></div><h2 class="q"></h2>'+mh+'<div class="opts" id="o"></div><div class="fb" id="fb"></div><div class="note hidden" id="wt"></div>'+
    '<div class="row" style="margin-top:8px"><button class="btn hidden" id="nx"></button><button class="btn ghost hidden" id="fo">Passer à la suite</button><button class="btn ghost" id="mn">Menu</button>'+(mine(curParty)?'<button class="btn ghost" id="ed">Modifier les questions</button>':'')+'</div></div>';
   app.querySelector(".q").textContent=d.q; $("mn").onclick=start;
   if(curParty&&dbRoot&&mine(curParty)){var lvd=document.createElement("div");lvd.className="live";lvd.id="lv";app.querySelector(".card").appendChild(lvd);startLive();renderLive(liveRows)}else stopLive();
@@ -995,11 +1044,18 @@ function show(){
   opts.forEach(function(t,n){var b=document.createElement("button");b.className="opt";
     b.innerHTML='<span class="l">'+L[n]+'</span><span></span>';b.lastChild.textContent=t;b.dataset.t=t;
     b.onclick=function(){if(multi){if(!locked)b.classList.toggle("sel")}else pick(b,t,d.a[0])};$("o").appendChild(b)});
-  if(multi){var vb=document.createElement("button");vb.className="btn block";vb.id="vm";vb.style.marginTop="6px";vb.textContent="Valider mes réponses";vb.onclick=validMulti;$("o").appendChild(vb);$("fb").textContent="Plusieurs bonnes réponses possibles : sélectionne-les toutes, puis valide."}
-  startTimer();
+  if(multi){var vb=document.createElement("button");vb.className="btn block";vb.id="vm";vb.style.marginTop="6px";vb.textContent="Valider mes réponses";vb.onclick=validMulti;$("o").appendChild(vb)}
+  var card=app.querySelector(".card"), RV=(window.matchMedia&&matchMedia("(prefers-reduced-motion: reduce)").matches)?0:3000;
+  if(RV){card.classList.add("rv");$("fb").textContent="Prépare-toi… la question se dévoile."}
+  if(curParty&&dbRoot)dbRoot.doc("scores/"+curParty.id+"~"+ME.id).update({vu:i}).catch(function(){});
+  setTimeout(function(){
+    if(rvTok!==REVTOK||view!=="game"||!$("o"))return;
+    locked=false; card.classList.remove("rv"); $("fb").textContent=multi?"Plusieurs bonnes réponses possibles : sélectionne-les toutes, puis valide.":"";
+    startTimer();
+  },RV);
 }
 function pick(b,t,good){
-  if(locked)return; locked=true; stopTimer(); var fb=$("fb"), ok=t===good;
+  if(locked)return; locked=true; stopTimer(); ANS[i]=t; var fb=$("fb"), ok=t===good;
   Array.prototype.forEach.call(document.querySelectorAll("#o .opt"),function(x){x.disabled=true;if(x.dataset.t===good)x.classList.add("right")});
   if(ok){var g=pts(run[i]);score+=g;$("s").textContent=score;fb.className="fb good";fb.textContent="Bonne réponse ! +"+pl(g)}
   else{b.classList.add("wrong");fb.className="fb bad";fb.textContent="Mauvaise réponse. La bonne réponse est surlignée en vert."}
@@ -1007,13 +1063,13 @@ function pick(b,t,good){
 }
 function validMulti(){
   if(locked)return; locked=true; stopTimer();
-  var d=run[i], good=d.a.slice(0,d.c||1), fb=$("fb"), all=true, nb=0, mal=0;
+  var d=run[i], good=d.a.slice(0,d.c||1), fb=$("fb"), all=true, nb=0, mal=0, selv=[];
   Array.prototype.forEach.call(document.querySelectorAll("#o .opt"),function(x){
     var g=good.indexOf(x.dataset.t)>=0, sel=x.classList.contains("sel");
-    x.disabled=true; if(g)x.classList.add("right"); if(sel&&!g)x.classList.add("wrong"); if(g!==sel)all=false; if(sel&&g)nb++; if(sel&&!g)mal++;
+    if(sel)selv.push(x.dataset.t); x.disabled=true; if(g)x.classList.add("right"); if(sel&&!g)x.classList.add("wrong"); if(g!==sel)all=false; if(sel&&g)nb++; if(sel&&!g)mal++;
   });
   var vb=$("vm"); if(vb)vb.classList.add("hidden");
-  var gain=Math.max(0,nb-mal); score+=gain; $("s").textContent=score;
+  ANS[i]=selv; var gain=Math.max(0,nb-mal); score+=gain; $("s").textContent=score;
   if(all){fb.className="fb good";fb.textContent="Bonne réponse ! +"+pl(gain)}
   else if(gain>0){fb.className="fb bad";fb.textContent="Pas tout à fait : +"+pl(gain)+". Les bonnes réponses sont surlignées en vert."}
   else{fb.className="fb bad";fb.textContent="Pas tout à fait. Les bonnes réponses sont surlignées en vert."}
@@ -1032,7 +1088,7 @@ async function attendre(){
   wt.classList.remove("hidden"); wt.textContent="En attente des autres joueurs…";
   function next(){if(fin||tok!==waitTok)return;fin=true;stopWait();i=q+1;if(i<run.length)show();else end()}
   if(fo&&mine(curParty)){fo.classList.remove("hidden");fo.onclick=next}
-  try{await dbRoot.doc("scores/"+id+"~"+ME.id).update({qn:q+1,points:score,total:totalPts(run)})}catch(e){}
+  try{await dbRoot.doc("scores/"+id+"~"+ME.id).update({qn:q+1,points:score,total:totalPts(run),rep:JSON.stringify(ANS)})}catch(e){}
   if(tok!==waitTok)return;
   waitTimer=setTimeout(next,(tmOf(run[q])+5)*1000);
   unsubWait=dbRoot.collection("scores").where("partie","==",id).onSnapshot(function(snap){
@@ -1055,7 +1111,7 @@ function startTimer(){
   tick(); timerId=setInterval(tick,250);
 }
 function timeUp(){
-  if(locked)return; locked=true; var fb=$("fb"), goods=run[i].vf?[run[i].a[0]]:run[i].a.slice(0,run[i].c||1); if($("vm"))$("vm").classList.add("hidden");
+  if(locked)return; locked=true; ANS[i]=null; var fb=$("fb"), goods=run[i].vf?[run[i].a[0]]:run[i].a.slice(0,run[i].c||1); if($("vm"))$("vm").classList.add("hidden");
   Array.prototype.forEach.call(document.querySelectorAll("#o .opt"),function(x){x.disabled=true;if(goods.indexOf(x.dataset.t)>=0)x.classList.add("right")});
   fb.className="fb bad"; fb.textContent="Temps écoulé ! La ou les bonnes réponses sont surlignées en vert.";
   nextBtn();
@@ -1064,7 +1120,7 @@ function pid(){return curParty?curParty.id:"principal"}
 async function saveScore(){
   try{
     var ref=dbRoot.doc("scores/"+pid()+"~"+ME.id), sn=await ref.get(), old=sn.exists&&sn.data();
-    if(!old||old.fini===false||score>old.points)await ref.set({partie:pid(),uid:ME.id,prenom:ME.prenom,nom:ME.nom,points:score,total:totalPts(run),fini:true,t:Date.now()});
+    if(!old||old.fini===false||score>old.points)await ref.set({partie:pid(),uid:ME.id,prenom:ME.prenom,nom:ME.nom,points:score,total:totalPts(run),fini:true,rep:JSON.stringify(ANS),t:Date.now()});
   }catch(e){}
 }
 async function loadBoard(){
@@ -1176,6 +1232,9 @@ function renderEditor(msg){
     ts.onchange=function(){if(ts.value==="vf"){it.vf=true;it.a=["Vrai","Faux"];delete it.c}else{delete it.vf;it.a=["","","",""];it.c=1}renderEditor("")};
     box.appendChild(tr);
     var tw=el('<div><label>Temps pour répondre (secondes, entre 5 et 300)</label><input type="number" min="5" max="300"></div>'), ti=tw.querySelector("input"); ti.value=it.tm||30; ti.oninput=function(e){it.tm=e.target.value}; box.appendChild(tw);
+    var lw=el('<div><label>Étiquette (facultatif, ex. « Des fois »)</label><input type="text" maxlength="30"><div class="chips" style="margin-top:6px"></div></div>'), li=lw.querySelector("input"); li.value=it.lb||""; li.oninput=function(e){it.lb=e.target.value};
+    ["Des fois","Facile","Difficile"].forEach(function(t){var c=document.createElement("button");c.type="button";c.className="chip";c.textContent=t;c.onclick=function(){it.lb=t;li.value=t};lw.querySelector(".chips").appendChild(c)});
+    box.appendChild(lw);
     if(assetsApi)["img","vid"].forEach(function(key){
       var isI=key==="img", r=el('<div><label>'+(isI?"Photo (facultatif)":"Vidéo (facultatif, 20 Mo maximum)")+'</label><div class="mrow"></div></div>'), row=r.querySelector(".mrow");
       if(it[key]){
@@ -1238,6 +1297,8 @@ function saveEditor(){
 }
 
 /* ---------- Démarrage ---------- */
+function kickParty(){stopTimer();stopWait();stopLive();stopPov();sortirSalle();REVTOK++;curParty=null;partiesView("Cette partie a été supprimée : tu as été retiré de la partie.")}
+async function purgerScores(id){try{var q=await dbRoot.collection("scores").where("partie","==",id).get();for(var n=0;n<q.docs.length;n++)await dbRoot.doc("scores/"+q.docs[n].id).delete()}catch(e){}}
 function refresh(){if(!ME)return;if(view==="salle"&&curParty)return salleMaj();if(view==="home")start();else if(view==="parties"&&!document.activeElement.matches("input"))partiesView($("msg")?$("msg").textContent:"")}
 function fromHash(){
   var m=location.hash.match(/p-[a-z0-9]+/); if(!m)return;
@@ -1329,6 +1390,8 @@ function makeDb(){
     dbMain.onSnapshot(function(s){var d=s.exists&&s.data(),it=d&&lire(d.items);if(it&&it.length)QUESTIONS=d.vf?it:it.concat(VFDEF.map(cp));refresh()});
     db.collection("parties").onSnapshot(function(snap){
       PARTIES=snap.docs.map(function(d){var x=d.data();return {id:d.id,name:x.name,max:x.max||0,etat:x.etat||"lancee",chef:x.chef||"",t:x.t||0,items:lire(x.items)||[]}}).sort(function(a,b){return a.t-b.t});
+      if(ME&&curParty&&curParty.id&&!PARTIES.some(function(x){return x.id===curParty.id})){kickParty();return}
+      if(ME&&view==="editor"&&target&&target.kind==="party"&&!PARTIES.some(function(x){return x.id===target.id})){partiesView("La partie a été supprimée.");return}
       if(pendingHash&&ME){pendingHash=false;fromHash()}else refresh();
     });
     var id=null; try{id=localStorage.getItem("quiz_compte")}catch(e){}
