@@ -1,4 +1,4 @@
-<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style><link rel="manifest" href="manifest.webmanifest"><meta name="theme-color" content="#f77f00"><link rel="icon" href="icon-192.png"><link rel="apple-touch-icon" href="icon-192.png"></head><body>
 <title>Quiz sur la logistique</title>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;600;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
@@ -300,9 +300,10 @@ table.rk td{vertical-align:middle}
 .tags{display:flex;flex-wrap:wrap;gap:8px;margin:0 0 12px}
 .tag{font-size:12px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;padding:4px 10px;border-radius:999px;border:1.5px solid var(--accent);color:var(--accent)}
 .tag.cu{background:var(--accent);color:#14213d}
-.rv .q,.rv .media,.rv .opts{animation:deblur 3s cubic-bezier(.3,.6,.4,1) forwards;pointer-events:none;user-select:none}
+.rv .opts{animation:deblur 3s cubic-bezier(.3,.6,.4,1) forwards;pointer-events:none;user-select:none}
 @keyframes deblur{from{filter:blur(18px);opacity:.55}to{filter:blur(0);opacity:1}}
-@media (prefers-reduced-motion:reduce){.rv .q,.rv .media,.rv .opts{animation:none}}
+@media (prefers-reduced-motion:reduce){.rv .opts{animation:none}}
+.tabs .who{margin-left:0!important}
 .lvr[data-uid]{cursor:pointer}
 .lvr[data-uid]:hover{border-color:var(--accent)}
 </style>
@@ -338,8 +339,19 @@ function shuffle(a){a=a.slice();for(var k=a.length-1;k>0;k--){var j=Math.floor(M
 function el(h){var d=document.createElement("div");d.innerHTML=h;return d.firstChild}
 function $(id){return document.getElementById(id)}
 function esc(s){var d=document.createElement("div");d.textContent=s;return d.innerHTML}
-function tabs(on){return '<div class="tabs">'+(on==="home"?'':'<button class="btn sm ghost" id="t-home">← Menu</button>')+'<span class="who">'+esc(ME.prenom+" "+ME.nom)+'</span>'+(on==="params"?'':'<button class="btn sm ghost" id="t-set">⚙️ Paramètres</button>')+'<button class="btn sm ghost" id="t-out">Déconnexion</button></div>'}
-function bindTabs(){if($("t-home"))$("t-home").onclick=start;if($("t-set"))$("t-set").onclick=paramsView;$("t-out").onclick=logout}
+function tabs(on){return '<div class="tabs">'+(on==="home"?'':'<button class="btn sm ghost" id="t-home">← Menu</button>')+'<span class="who">'+esc(ME.prenom+" "+ME.nom)+'</span><button class="btn sm ghost" id="t-inst"'+(STANDALONE?' hidden':'')+'>📲 Installer</button><span style="flex:1"></span>'+(on==="params"?'':'<button class="btn sm ghost" id="t-set">⚙️ Paramètres</button>')+'<button class="btn sm ghost" id="t-out">Déconnexion</button></div>'}
+function bindTabs(){if($("t-home"))$("t-home").onclick=start;if($("t-inst"))$("t-inst").onclick=installApp;if($("t-set"))$("t-set").onclick=paramsView;$("t-out").onclick=logout}
+/* ---------- Installer l’application (tablette) ---------- */
+var STANDALONE=false; try{STANDALONE=(window.matchMedia&&matchMedia("(display-mode: standalone)").matches)||window.navigator.standalone===true}catch(e){}
+var deferredInstall=null;
+window.addEventListener("beforeinstallprompt",function(e){e.preventDefault();deferredInstall=e});
+window.addEventListener("appinstalled",function(){deferredInstall=null;var b=$("t-inst");if(b)b.hidden=true;toast("Application installée !")});
+function toast(t){var d=document.createElement("div");d.textContent=t;d.style.cssText="position:fixed;left:50%;bottom:24px;transform:translateX(-50%);max-width:min(92vw,460px);background:#14213d;color:#fff;border:1px solid #f77f00;padding:12px 16px;border-radius:12px;font-size:15px;z-index:99;box-shadow:0 8px 24px rgba(0,0,0,.35)";document.body.appendChild(d);setTimeout(function(){d.remove()},7000)}
+function installApp(){
+  if(deferredInstall){var e=deferredInstall;deferredInstall=null;e.prompt();e.userChoice.then(function(c){if(c&&c.outcome!=="accepted")toast("Installation annulée.")}).catch(function(){});return}
+  toast("Pour installer : ouvre le menu du navigateur (⋮ ou Partager) puis choisis « Installer l’application » ou « Ajouter à l’écran d’accueil ».")
+}
+if("serviceWorker" in navigator&&/^https?:$/.test(location.protocol))window.addEventListener("load",function(){navigator.serviceWorker.register("sw.js").catch(function(){})});
 /* ---------- Paramètres : résolution du site ---------- */
 var ZOOM=100;
 function applyZoom(z){ZOOM=z;var a=document.getElementById("app");if(a)a.style.zoom=(z/100)}
@@ -778,10 +790,18 @@ function creerView(msg){
   if(!ME||!isAdmin)return start(); view="creer"; msg=typeof msg==="string"?msg:"";
   app.innerHTML='<div class="card">'+tabs("creer")+'<div class="eyebrow">Nouveau quiz</div><h1 class="title">Créer un quiz</h1>'+
    '<p class="lead">Donne un nom à ton quiz et choisis le nombre de joueurs. Tu ajouteras les questions à l’étape suivante.</p>'+
-   '<label>Nom du quiz</label><input type="text" id="cn"><label>Nombre de joueurs</label><input type="number" id="cm" min="1" max="500" value="10"><label>Temps par question (secondes)</label><input type="number" id="ct" min="5" max="300" value="30">'+
+   '<label>Nom du quiz</label><div class="row" style="margin:0"><input type="text" id="cn" style="flex:1;min-width:180px"><button class="btn ghost" id="cdos" type="button">📁 Dossier des quiz</button></div><label>Nombre de joueurs</label><input type="number" id="cm" min="1" max="500" value="10"><label>Temps par question (secondes)</label><input type="number" id="ct" min="5" max="300" value="30">'+
    '<label style="display:flex;align-items:center;gap:8px;font-size:14px;color:var(--ink);margin-top:14px"><input type="checkbox" id="cc" style="width:auto"> Reprendre les questions du quiz principal</label>'+
-   '<div class="note" id="msg"></div><div class="row"><button class="btn" id="cok">Créer et ajouter les questions</button><button class="btn ghost" id="csv">Enregistrer les paramètres</button></div></div>';
+   '<div class="note" id="msg"></div><div class="row"><button class="btn" id="cok">Créer et ajouter les questions</button><button class="btn ghost" id="clat">Enregistrer pour plus tard</button><button class="btn ghost" id="csv">Enregistrer les paramètres</button></div></div>';
   bindTabs(); $("msg").textContent=msg;
+  $("cdos").onclick=function(){dossierView("")};
+  $("clat").onclick=function(){
+    var n=$("cn").value.trim(); if(!n)return $("msg").textContent="Donne un nom au quiz.";
+    var tm=parseInt($("ct").value,10); if(!(tm>=5&&tm<=300))return $("msg").textContent="Entre un temps par question entre 5 et 300 secondes.";
+    var its=$("cc").checked?QUESTIONS.map(cp):[]; if(tm!==30)its.forEach(function(x){x.tm=tm});
+    var d=newDos(n,its); $("clat").disabled=true; $("msg").textContent="Enregistrement…";
+    saveDossier(d).then(function(){DOSS.push(d);openEditor({kind:"dossier",id:d.id})},function(e){creerView("Échec de l’enregistrement : "+errTxt(e))});
+  };
   function lireP(){var mx=parseInt($("cm").value,10),tm=parseInt($("ct").value,10);if(!(mx>=1&&mx<=500)){$("msg").textContent="Entre un nombre de joueurs entre 1 et 500.";return null}if(!(tm>=5&&tm<=300)){$("msg").textContent="Entre un temps par question entre 5 et 300 secondes.";return null}return {max:mx,tm:tm,rep:$("cc").checked?1:0}}
   function appliqueP(r){if(!r)return;if(r.max>=1&&r.max<=500)$("cm").value=r.max;if(r.tm>=5&&r.tm<=300)$("ct").value=r.tm;$("cc").checked=!!r.rep}
   chargerReglages().then(function(r){if(view==="creer"&&$("cn")&&!$("cn").value)appliqueP(r)});
@@ -1028,7 +1048,43 @@ function startLive(){
     liveRows=snap.docs.map(function(d){return d.data()}); renderLive(liveRows);
   });
 }
-var REVTOK=0, ANS=[], povUnsub=null, BON=0, edSaved=false;
+var REVTOK=0, ANS=[], povUnsub=null, BON=0, edSaved=false, DOSS=[];
+function saveDossier(d){if(!dbRoot)return Promise.reject({message:"base indisponible"});return dbRoot.doc("dossier/"+d.id).set({name:d.name,chef:d.chef||"",par:d.par||"",items:JSON.stringify(d.items),t:d.t||Date.now()})}
+function newDos(n,its){return {id:"d-"+Math.random().toString(36).slice(2,7),name:n,chef:ME.id,par:ME.prenom+" "+ME.nom,t:Date.now(),items:its}}
+async function lancerDepuisDossier(d,btn){
+  if(!d.items.length)return dossierView("Ce quiz n’a pas encore de questions : clique sur Modifier pour en ajouter.");
+  if(btn)btn.disabled=true;
+  var r=await chargerReglages(), mx=(r&&r.max>=1&&r.max<=500)?r.max:10, tm=(r&&r.tm>=5&&r.tm<=300)?r.tm:0;
+  var its=d.items.map(cp); if(tm&&tm!==30)its.forEach(function(x){if(!x.tm)x.tm=tm});
+  var p={id:"p-"+Math.random().toString(36).slice(2,7),name:d.name,max:mx,etat:"attente",chef:ME.id,t:Date.now(),items:its};
+  saveParty(p).then(function(){if(!PARTIES.some(function(x){return x.id===p.id}))PARTIES.push(p);play(p)},function(e){dossierView("Échec du lancement : "+errTxt(e))});
+}
+async function dossierView(msg){
+  if(!ME||!isProf())return start(); view="dossier"; msg=typeof msg==="string"?msg:"";
+  app.innerHTML='<div class="card">'+tabs("dossier")+'<div class="eyebrow">Professeur</div><h1 class="title">Dossier des quiz</h1><p class="lead">Les quiz enregistrés pour plus tard. Tu peux les modifier ou lancer une partie avec.</p><div class="note" id="msg"></div><div id="dl">Chargement…</div><div class="row"><button class="btn ghost" id="db">Retour</button></div></div>';
+  bindTabs(); $("msg").textContent=msg; $("db").onclick=function(){creerView("")};
+  try{var q=await dbRoot.collection("dossier").get(); DOSS=q.docs.map(function(d){var x=d.data();return {id:d.id,name:x.name||"Sans nom",chef:x.chef||"",par:x.par||"",t:x.t||0,items:lire(x.items)||[]}}).sort(function(a,b){return b.t-a.t})}
+  catch(e){if(view==="dossier"&&$("dl"))$("dl").textContent="Impossible de charger le dossier : "+errTxt(e);return}
+  if(view!=="dossier"||!$("dl"))return;
+  var dl=$("dl"); dl.textContent="";
+  if(!DOSS.length){dl.appendChild(el('<p class="note">Aucun quiz enregistré pour le moment. Dans « Créer un quiz », utilise « Enregistrer pour plus tard ».</p>'));return}
+  DOSS.forEach(function(d){
+    var r=el('<div class="prow"><div><b></b><small></small></div><div class="acts"></div></div>');
+    r.querySelector("b").textContent=d.name;
+    r.querySelector("small").textContent=d.items.length+" question"+(d.items.length>1?"s":"")+(d.par?" · par "+d.par:"")+(d.t?" · "+new Date(d.t).toLocaleDateString("fr-FR"):"");
+    var acts=r.querySelector(".acts");
+    function add(label,cls,fn){var b=document.createElement("button");b.className="btn sm "+cls;b.textContent=label;b.onclick=fn;acts.appendChild(b)}
+    add("Lancer une partie","",function(ev){lancerDepuisDossier(d,ev.target)});
+    if(d.chef===ME.id){
+      add("Modifier","ghost",function(){openEditor({kind:"dossier",id:d.id})});
+      add("Supprimer","danger",function(ev){
+        var b=ev.target; if(b.dataset.ok!=="1"){b.dataset.ok="1";b.textContent="Confirmer la suppression";return}
+        b.disabled=true; dbRoot.doc("dossier/"+d.id).delete().then(function(){dossierView("Quiz supprimé du dossier.")},function(e){dossierView("Échec de la suppression : "+errTxt(e))});
+      });
+    }
+    dl.appendChild(r);
+  });
+}
 async function claimBonus(pid0,q){
   var base="rapide/"+pid0+"/"+q;
   await dbRoot.doc(base+"/"+ME.id).set({t:{".sv":"timestamp"}});
@@ -1068,7 +1124,7 @@ function show(){
     b.onclick=function(){if(multi){if(!locked)b.classList.toggle("sel")}else pick(b,t,d.a[0])};$("o").appendChild(b)});
   if(multi){var vb=document.createElement("button");vb.className="btn block";vb.id="vm";vb.style.marginTop="6px";vb.textContent="Valider mes réponses";vb.onclick=validMulti;$("o").appendChild(vb)}
   var card=app.querySelector(".card"), RV=(window.matchMedia&&matchMedia("(prefers-reduced-motion: reduce)").matches)?0:3000;
-  if(RV){card.classList.add("rv");$("fb").textContent="Prépare-toi… la question se dévoile."}
+  if(RV){card.classList.add("rv");$("fb").textContent="Prépare-toi… les réponses se dévoilent."}
   if(curParty&&dbRoot)dbRoot.doc("scores/"+curParty.id+"~"+ME.id).update({vu:i}).catch(function(){});
   setTimeout(function(){
     if(rvTok!==REVTOK||view!=="game"||!$("o"))return;
@@ -1235,16 +1291,16 @@ function end(){
 
 /* ---------- Éditeur (admin) ---------- */
 function openEditor(t){
-  edSaved=false; view="editor"; target=t; var src=t.kind==="main"?QUESTIONS:PARTIES.filter(function(p){return p.id===t.id})[0].items;
+  edSaved=false; view="editor"; target=t; var src=t.kind==="main"?QUESTIONS:t.kind==="dossier"?DOSS.filter(function(p){return p.id===t.id})[0].items:PARTIES.filter(function(p){return p.id===t.id})[0].items;
   draft=src.map(cp); draftMax=t.kind==="party"?(PARTIES.filter(function(p){return p.id===t.id})[0].max||""):""; renderEditor("");
 }
 function renderEditor(msg){
   if(!/^Enregistré/.test(msg||""))edSaved=false;
-  var name=target.kind==="main"?"Questions du quiz principal":"Partie : "+PARTIES.filter(function(p){return p.id===target.id})[0].name;
+  var name=target.kind==="main"?"Questions du quiz principal":target.kind==="dossier"?"Dossier : "+DOSS.filter(function(p){return p.id===target.id})[0].name:"Partie : "+PARTIES.filter(function(p){return p.id===target.id})[0].name;
   app.innerHTML='<div class="card"><div class="eyebrow">Espace administrateur</div><h1 class="title"></h1>'+
    '<p class="lead">Pour chaque question, cochez la ou les bonnes réponses (bordure verte). Les réponses sont mélangées pour les joueurs.</p>'+(target.kind==="party"?'<label>Nombre de joueurs</label><input type="number" id="pmx" min="1" max="500">':'')+
    '<div id="list"></div><div class="row"><button class="btn ghost sm" id="add">+ Ajouter une question</button><button class="btn ghost sm" id="addvf">+ Ajouter un vrai ou faux</button></div>'+
-   '<div class="note" id="msg"></div><div class="row"><button class="btn" id="save">Enregistrer</button>'+(edSaved&&target.kind==="party"?'<button class="btn" id="goroom"></button>':'')+'<button class="btn ghost" id="back">Retour</button></div></div>';
+   '<div class="note" id="msg"></div><div class="row"><button class="btn" id="save">Enregistrer</button>'+(edSaved&&(target.kind==="party"||target.kind==="dossier")?'<button class="btn" id="goroom"></button>':'')+(target.kind==="party"?'<button class="btn ghost" id="todos">Enregistrer dans le dossier</button>':'')+'<button class="btn ghost" id="back">Retour</button></div></div>';
   app.querySelector(".title").textContent=name; $("msg").textContent=msg;
   if($("pmx")){$("pmx").value=draftMax;$("pmx").oninput=function(e){draftMax=e.target.value}}
   draft.forEach(function(it,n){
@@ -1300,12 +1356,17 @@ function renderEditor(msg){
   });
   $("add").onclick=function(){draft.push({q:"",a:["","","",""]});renderEditor("")};
   $("addvf").onclick=function(){draft.push({q:"",vf:true,a:["Vrai","Faux"]});renderEditor("")};
-  $("back").onclick=function(){target.kind==="main"?start():partiesView()};
+  $("back").onclick=function(){target.kind==="main"?start():target.kind==="dossier"?dossierView(""):partiesView()};
   $("save").onclick=saveEditor;
+  if($("todos"))$("todos").onclick=function(){
+    var its=draft.filter(function(x){return x.q&&x.q.trim()}).map(cp); if(!its.length)return $("msg").textContent="Ajoute au moins une question.";
+    var pt=PARTIES.filter(function(p){return p.id===target.id})[0], d=newDos(pt?pt.name:"Quiz",its); $("todos").disabled=true;
+    saveDossier(d).then(function(){DOSS.push(d);$("todos").disabled=false;$("msg").textContent="Quiz enregistré dans le dossier des quiz."},function(e){$("todos").disabled=false;$("msg").textContent="Échec de l’enregistrement : "+errTxt(e)});
+  };
   if($("goroom")){
-    var gp=PARTIES.filter(function(p){return p.id===target.id})[0];
-    $("goroom").textContent=gp&&gp.etat==="attente"?"Aller dans la salle":"Suivre la partie";
-    $("goroom").onclick=function(){if(gp)play(gp)};
+    var gp=(target.kind==="dossier"?DOSS:PARTIES).filter(function(p){return p.id===target.id})[0];
+    $("goroom").textContent=target.kind==="dossier"?"Lancer une partie":(gp&&gp.etat==="attente"?"Aller dans la salle":"Suivre la partie");
+    $("goroom").onclick=function(){if(gp){if(target.kind==="dossier")lancerDepuisDossier(gp,$("goroom"));else play(gp)}};
     $("list").addEventListener("input",function(){var g=$("goroom");if(g)g.classList.add("hidden")});
   }
 }
@@ -1314,10 +1375,12 @@ function saveEditor(){
   for(var n=0;n<clean.length;n++){if(clean[n].a.some(function(s){return !s})){draft=clean;return renderEditor("Question "+(n+1)+" : remplis toutes les réponses.")}}
   if(!clean.length)return renderEditor("Ajoute au moins une question.");
   if($("save")){$("save").disabled=true;$("msg").textContent="Enregistrement en cours…"}
-  var ok=function(){draft=clean;edSaved=true;renderEditor("Enregistré. Les joueurs verront les nouvelles questions.")}, ko=function(e){draft=clean;edSaved=false;renderEditor("Échec de l’enregistrement : "+errTxt(e))};
+  var ok=function(){draft=clean;edSaved=true;renderEditor(target.kind==="dossier"?"Enregistré dans le dossier des quiz.":"Enregistré. Les joueurs verront les nouvelles questions.")}, ko=function(e){draft=clean;edSaved=false;renderEditor("Échec de l’enregistrement : "+errTxt(e))};
   if(target.kind==="main"){
     if(!dbMain)return renderEditor("Enregistrement indisponible ici.");
     dbMain.set({items:JSON.stringify(clean),vf:1}).then(function(){QUESTIONS=clean;ok()},ko);
+  }else if(target.kind==="dossier"){
+    var dd=DOSS.filter(function(p){return p.id===target.id})[0]; dd.items=clean; saveDossier(dd).then(ok,ko);
   }else{
     var mx=parseInt(draftMax,10); if(!(mx>=1&&mx<=500)){draft=clean;return renderEditor("Entre un nombre de joueurs entre 1 et 500.")}
     var pt=PARTIES.filter(function(p){return p.id===target.id})[0]; pt.items=clean; pt.max=mx;
