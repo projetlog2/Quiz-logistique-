@@ -937,8 +937,8 @@ function salleMaj(){ /* appelé quand les parties changent */
 function isHostOf(p){return !!(ME&&(ME.role==="prof"||(p&&mine(p))))}
 function hostScreen(p){
   view="host"; curParty=p; stopLive(); stopTimer(); stopWait(); livePid=p.id; liveRows=[];
-  app.innerHTML='<div class="card"><div class="eyebrow"></div><h1 class="title" id="ht">Classement en direct</h1><p class="lead"><span class="pulse" id="hp"></span> <span id="hs"></span></p><div class="live" id="lv"></div><div class="row" style="margin-top:12px"><button class="btn ghost" id="mn">Menu</button></div></div>';
-  app.querySelector(".eyebrow").textContent=p.name;
+  app.innerHTML='<div class="card"><div class="eyebrow"></div><h1 class="title" id="ht">Classement en direct</h1><p class="lead"><span class="pulse" id="hp"></span> <span id="hs"></span></p><div class="note hidden" id="board"></div><div class="live" id="lv"></div><div class="row" style="margin-top:12px"><button class="btn ghost" id="mn">Menu</button></div></div>';
+  hostFinal=false; app.querySelector(".eyebrow").textContent=p.name;
   $("mn").onclick=function(){stopLive();start()};
   dbRoot.collection("personnages").get().then(function(pq){pq.docs.forEach(function(d){var x=d.data(),l=lire(x.liste)||[];liveAV[d.id]=l.filter(function(c){return c.id===x.actif})[0]||l[0]||null});hostRender(p)}).catch(function(){});
   liveUnsub=dbRoot.collection("scores").where("partie","==",p.id).onSnapshot(function(snap){
@@ -964,8 +964,9 @@ function povView(p,uid){
     var rep=lire(r.rep)||[], answered=(r.qn||0)>k||(r.fini===true), sel=rep[k], selA=Array.isArray(sel)?sel:(sel?[sel]:[]);
     var goods=d.vf?[d.a[0]]:d.a.slice(0,d.c||1), ok=answered&&goods.length===selA.length&&goods.every(function(g){return selA.indexOf(g)>=0});
     $("pv-who").querySelector(".note").textContent=pl(r.points||0)+" · "+(r.fini===true?"a terminé le quiz":(idx==null?"est sur la question "+(k+1)+"/"+n:"tu regardes la question "+(k+1)+"/"+n));
-    var known=answered&&r.rep!=null&&sel!==undefined, late=known&&sel===null, st=!answered?"Le joueur est en train de répondre…":(!known?"Réponse non enregistrée : ce joueur doit recharger la page pour avoir la dernière version.":(late?"Temps écoulé : le joueur n’a plus eu de temps.":(ok?"Bonne réponse !":"Mauvaise réponse.")));
-    $("pv").innerHTML=tagsHtml(d)+'<h2 class="q"></h2>'+mediaHtml(d)+'<div class="opts" id="pv-o"></div><div class="fb'+(known?(ok?" good":" bad"):"")+'" id="pv-fb"></div>';
+    var known=answered&&r.rep!=null&&sel!==undefined, late=known&&sel===null, guess=(answered&&!known&&r.fini!==true&&(r.qn||0)===k+1)?((r.points||0)>0?1:-1):0, win=known?ok:guess>0, shw=known||guess!==0,
+    st=!answered?"Le joueur est en train de répondre…":(!shw?"":(late?"Temps écoulé : le joueur n’a plus eu de temps.":(win?"Bonne réponse !":"Mauvaise réponse.")));
+    $("pv").innerHTML=tagsHtml(d)+'<h2 class="q"></h2>'+mediaHtml(d)+'<div class="opts" id="pv-o"></div><div class="fb'+(shw?(win&&!late?" good":" bad"):"")+'" id="pv-fb"></div>';
     $("pv").querySelector(".q").textContent=d.q; $("pv-fb").textContent=st;
     d.a.forEach(function(t,m){var b=document.createElement("button");b.className="opt";b.disabled=true;var g=goods.indexOf(t)>=0;
       if(answered&&g)b.classList.add("right"); if(answered&&selA.indexOf(t)>=0&&!g)b.classList.add("wrong");
@@ -984,6 +985,7 @@ function hostRender(p){
   var rows=liveRows.slice().sort(function(a,b){return (b.points||0)-(a.points||0)||(a.t||0)-(b.t||0)});
   var done=rows.filter(function(r){return r.fini===true}).length;
   var all=rows.length>0&&done===rows.length;
+  if($("board")){if(all){$("board").classList.remove("hidden");if(!hostFinal){hostFinal=true;loadBoard()}}else{$("board").classList.add("hidden");hostFinal=false}}
   $("ht").textContent=all?"Classement final":"Classement en direct"; if($("hp"))$("hp").style.display=all?"none":"";
   $("hs").textContent=(all?"Partie terminée · ":"")+rows.length+" joueur"+(rows.length>1?"s":"")+(all?"":" · "+done+" ont terminé")+(rows.length?" · touche un joueur pour voir ses réponses":"");
   box.innerHTML='<div class="lvl" style="max-height:none"></div>';
@@ -999,7 +1001,7 @@ function hostRender(p){
     l.appendChild(c);
   });
 }
-var liveUnsub=null, livePid=null, liveAV={}, liveRows=[];
+var hostFinal=false, liveUnsub=null, livePid=null, liveAV={}, liveRows=[];
 function stopLive(){if(liveUnsub){liveUnsub();liveUnsub=null}livePid=null}
 function renderLive(rows){
   var box=$("lv"); if(!box){stopLive();return}
@@ -1026,7 +1028,7 @@ function startLive(){
     liveRows=snap.docs.map(function(d){return d.data()}); renderLive(liveRows);
   });
 }
-var REVTOK=0, ANS=[], povUnsub=null, BON=0;
+var REVTOK=0, ANS=[], povUnsub=null, BON=0, edSaved=false;
 async function claimBonus(pid0,q){
   var base="rapide/"+pid0+"/"+q;
   await dbRoot.doc(base+"/"+ME.id).set({t:{".sv":"timestamp"}});
@@ -1233,15 +1235,16 @@ function end(){
 
 /* ---------- Éditeur (admin) ---------- */
 function openEditor(t){
-  view="editor"; target=t; var src=t.kind==="main"?QUESTIONS:PARTIES.filter(function(p){return p.id===t.id})[0].items;
+  edSaved=false; view="editor"; target=t; var src=t.kind==="main"?QUESTIONS:PARTIES.filter(function(p){return p.id===t.id})[0].items;
   draft=src.map(cp); draftMax=t.kind==="party"?(PARTIES.filter(function(p){return p.id===t.id})[0].max||""):""; renderEditor("");
 }
 function renderEditor(msg){
+  if(!/^Enregistré/.test(msg||""))edSaved=false;
   var name=target.kind==="main"?"Questions du quiz principal":"Partie : "+PARTIES.filter(function(p){return p.id===target.id})[0].name;
   app.innerHTML='<div class="card"><div class="eyebrow">Espace administrateur</div><h1 class="title"></h1>'+
    '<p class="lead">Pour chaque question, cochez la ou les bonnes réponses (bordure verte). Les réponses sont mélangées pour les joueurs.</p>'+(target.kind==="party"?'<label>Nombre de joueurs</label><input type="number" id="pmx" min="1" max="500">':'')+
    '<div id="list"></div><div class="row"><button class="btn ghost sm" id="add">+ Ajouter une question</button><button class="btn ghost sm" id="addvf">+ Ajouter un vrai ou faux</button></div>'+
-   '<div class="note" id="msg"></div><div class="row"><button class="btn" id="save">Enregistrer</button><button class="btn ghost" id="back">Retour</button></div></div>';
+   '<div class="note" id="msg"></div><div class="row"><button class="btn" id="save">Enregistrer</button>'+(edSaved&&target.kind==="party"?'<button class="btn" id="goroom"></button>':'')+'<button class="btn ghost" id="back">Retour</button></div></div>';
   app.querySelector(".title").textContent=name; $("msg").textContent=msg;
   if($("pmx")){$("pmx").value=draftMax;$("pmx").oninput=function(e){draftMax=e.target.value}}
   draft.forEach(function(it,n){
@@ -1299,13 +1302,19 @@ function renderEditor(msg){
   $("addvf").onclick=function(){draft.push({q:"",vf:true,a:["Vrai","Faux"]});renderEditor("")};
   $("back").onclick=function(){target.kind==="main"?start():partiesView()};
   $("save").onclick=saveEditor;
+  if($("goroom")){
+    var gp=PARTIES.filter(function(p){return p.id===target.id})[0];
+    $("goroom").textContent=gp&&gp.etat==="attente"?"Aller dans la salle":"Suivre la partie";
+    $("goroom").onclick=function(){if(gp)play(gp)};
+    $("list").addEventListener("input",function(){var g=$("goroom");if(g)g.classList.add("hidden")});
+  }
 }
 function saveEditor(){
   var clean=draft.filter(function(x){return x.q.trim()}).map(function(x){if(x.vf){var v=x.a[0]==="Faux"?"Faux":"Vrai";return ml(x,{q:x.q.trim(),vf:true,a:v==="Vrai"?["Vrai","Faux"]:["Faux","Vrai"]})}return ml(x,{q:x.q.trim(),a:x.a.map(function(s){return (s||"").trim()})})});
   for(var n=0;n<clean.length;n++){if(clean[n].a.some(function(s){return !s})){draft=clean;return renderEditor("Question "+(n+1)+" : remplis toutes les réponses.")}}
   if(!clean.length)return renderEditor("Ajoute au moins une question.");
   if($("save")){$("save").disabled=true;$("msg").textContent="Enregistrement en cours…"}
-  var ok=function(){draft=clean;renderEditor("Enregistré. Les joueurs verront les nouvelles questions.")}, ko=function(e){draft=clean;renderEditor("Échec de l’enregistrement : "+errTxt(e))};
+  var ok=function(){draft=clean;edSaved=true;renderEditor("Enregistré. Les joueurs verront les nouvelles questions.")}, ko=function(e){draft=clean;edSaved=false;renderEditor("Échec de l’enregistrement : "+errTxt(e))};
   if(target.kind==="main"){
     if(!dbMain)return renderEditor("Enregistrement indisponible ici.");
     dbMain.set({items:JSON.stringify(clean),vf:1}).then(function(){QUESTIONS=clean;ok()},ko);
